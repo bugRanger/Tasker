@@ -5,7 +5,5 @@
         int Interval { get; }
 
         int AssignedId { get; }
-
-        int[] StatusIds { get; }
     }
 }

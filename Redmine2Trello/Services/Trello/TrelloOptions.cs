@@ -1,5 +1,7 @@
 ﻿namespace Redmine2Trello.Services
 {
+    using System.Collections.Generic;
+
     using CommandLine;
 
     class TrelloOptions : ITrelloOptions, ITrelloSync
@@ -16,6 +18,6 @@
         public int Interval { get; set; }
 
         [Option("tr_boards", Required = true, ResourceType = typeof(string[]))]
-        public string[] BoardIds { get; set; }
+        public IList<string> BoardIds { get; set; }
     }
 }

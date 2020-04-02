@@ -4,9 +4,15 @@
 
     class UpdateIssueTask : TaskItem<RedmineService>
     {
-        public int IssueId { get; set; }
+        public int IssueId { get; }
 
-        public int StatusId { get; set; }
+        public int StatusId { get; }
+
+        public UpdateIssueTask(int issueId, int statusId) 
+        {
+            IssueId = issueId;
+            StatusId = statusId;
+        }
 
         public override void Handle(RedmineService service)
         {

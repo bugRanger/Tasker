@@ -1,9 +1,11 @@
 ﻿namespace Redmine2Trello.Services
 {
+    using System.Collections.Generic;
+
     interface ITrelloSync
     {
-        int Interval { get; }
+        IList<string> BoardIds { get; }
 
-        string[] BoardIds { get; }
+        int Interval { get; }
     }
 }

@@ -20,12 +20,14 @@
         private RedmineManager _manager;
         private TaskQueue<TaskItem<RedmineService>> _queue;
         private Dictionary<int, Issue> _issues;
+        private Dictionary<int, IssueStatus> _statuses;
 
         #endregion Fields
 
         #region Events
 
         public event EventHandler<Issue[]> UpdateIssues;
+        public event EventHandler<IssueStatus[]> UpdateStatuses;
 
         #endregion Events
 
@@ -33,11 +35,13 @@
 
         public RedmineService(IRedmineOptions options)
         {
+
             _issues = new Dictionary<int, Issue>();
+            _statuses = new Dictionary<int, IssueStatus>();
 
             _options = options;
             _manager = new RedmineManager(options.Host, options.ApiKey);
-            _queue = new TaskQueue<TaskItem<RedmineService>>(obj => obj.Handle(this));
+            _queue = new TaskQueue<TaskItem<RedmineService>>(task => task.Handle(this));
         }
 
         public void Dispose()
@@ -67,13 +71,13 @@
 
             _queue.Stop();
         }
-        
+
         public void Enqueue(TaskItem<RedmineService> task)
         {
             _queue.Enqueue(task);
         }
 
-        public async void Handle(UpdateIssueTask task) 
+        public async void Handle(UpdateIssueTask task)
         {
             Issue issue = await _manager.Get<Issue>(task.IssueId.ToString(), null);
             IssueStatus status = await _manager.Get<IssueStatus>(task.StatusId.ToString(), null);
@@ -85,30 +89,54 @@
                 _issues[issue.Id] = issue;
         }
 
+        public async void Handle(SyncStatusesTask task)
+        {
+            List<IssueStatus> statuses = await _manager.ListAll<IssueStatus>(new NameValueCollection());
+
+            IssueStatus[] updates = statuses
+                .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
+                .ToArray();
+
+            foreach (IssueStatus status in updates)
+                _statuses[status.Id] = status;
+
+            if (updates.Any())
+                UpdateStatuses?.Invoke(this, updates);
+
+
+            // TODO Move to callback.
+            if (_queue.HasEnabled())
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(_options.Sync.Interval);
+                    Enqueue(new SyncStatusesTask());
+                });
+        }
+
         public async void Handle(SyncIssuesTask task)
         {
             List<Issue> issues = await _manager.ListAll<Issue>(
                 new NameValueCollection()
                 {
                     { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.AssignedId.ToString() },
-                    // TODO Add support multi status.
-                    { RedmineKeys.STATUS_ID, task.SyncOptions.StatusIds[0].ToString() }
                 });
 
-            var updates = issues
+            Issue[] updates = issues
                 .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Equals(w))
                 .ToArray();
 
-            foreach (var issue in updates)
+            foreach (Issue issue in updates)
                 _issues[issue.Id] = issue;
 
-            UpdateIssues?.Invoke(this, updates);
+            if (updates.Any())
+                UpdateIssues?.Invoke(this, updates);
 
+            // TODO Move to callback.
             if (_queue.HasEnabled())
-                _ = Task.Run(async () => 
+                _ = Task.Run(async () =>
                 {
-                    await Task.Delay(_options.Sync.Interval);
-                    Enqueue(new SyncIssuesTask(_options.Sync));
+                    await Task.Delay(task.SyncOptions.Interval);
+                    Enqueue(new SyncIssuesTask(task.SyncOptions));
                 });
         }
 

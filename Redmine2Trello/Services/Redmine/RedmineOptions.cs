@@ -17,8 +17,5 @@
 
         [Option("rm_assigned", Required = true, ResourceType = typeof(int))]
         public int AssignedId { get; set; }
-
-        [Option("rm_statuses", Required = true, ResourceType = typeof(int[]))]
-        public int[] StatusIds { get; set; }
     }
 }

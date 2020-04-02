@@ -14,6 +14,7 @@
     {
         #region Fields
 
+        private IMe _me;
         private ITrelloOptions _options;
         private TrelloFactory _factory;
         private Dictionary<string, string> _cards2list;
@@ -22,6 +23,8 @@
         #endregion Fields
 
         #region Events
+
+        public event EventHandler<IBoard> NewBoard;
 
         public event EventHandler<ICard[]> UpdateCards;
 
@@ -37,7 +40,7 @@
             _options = options;
             _factory = new TrelloFactory();
             _cards2list = new Dictionary<string, string>();
-            _queue = new TaskQueue<TaskItem<TrelloService>>(obj => obj.Handle(this));
+            _queue = new TaskQueue<TaskItem<TrelloService>>(task => task.Handle(this));
         }
 
         public void Dispose()
@@ -55,11 +58,7 @@
                 return;
 
             _queue.Start();
-
-            Enqueue(new SyncListTask()
-            {
-                SyncOptions = _options.Sync
-            });
+            Enqueue(new SyncListTask(_options.Sync));
         }
 
         public override void Stop()
@@ -74,28 +73,58 @@
         {
             _queue.Enqueue(task);
         }
-        
+
+        public async void Handle(ImportIssueTask task)
+        {
+            _me ??= await _factory.Me();
+
+            IBoard board = _me.Boards.FirstOrDefault(a => a.Name != task.Project);
+            if (board == null)
+            {
+                board = await _me.Boards.Add(task.Project);
+                _options.Sync.BoardIds.Add(board.Id);
+                NewBoard?.Invoke(this, board);
+            }
+
+            IList list = board.Lists.FirstOrDefault(a => a.Name == task.Status) ?? await board.Lists.Add(task.Status);
+            ICard card = list.Cards.FirstOrDefault(a => a.Name == task.Subject) ?? await list.Cards.Add(task.Subject);
+        }
+
+        public async void Handle(UpdateListTask task)
+        {
+            IBoard board = _factory.Board(task.BoardId);
+            await board.Lists.Refresh(true);
+            foreach (string list in task.Lists)
+            {
+                if (board.Lists.All(a => a.Name != list))
+                {
+                    await board.Lists.Add(list);
+                }
+            }
+        }
+
         public async void Handle(SyncListTask task)
         {
-            foreach (var boardId in task.SyncOptions.BoardIds)
+            foreach (string boardId in task.SyncOptions.BoardIds)
             {
-                var board = _factory.Board(boardId);
+                IBoard board = _factory.Board(boardId);
 
                 await board.Lists.Refresh(true);
-                foreach (var list in board.Lists)
+                foreach (IList list in board.Lists)
                 {
                     await list.Cards.Refresh(true);
 
-                    var updates = list.Cards
+                    ICard[] updates = list.Cards
                         .Where(w =>
                             !_cards2list.ContainsKey(w.Id) ||
                             _cards2list[w.Id] != w.List.Id)
                         .ToArray();
 
-                    foreach (var card in updates)
+                    foreach (ICard card in updates)
                         _cards2list[card.Id] = card.List.Id;
 
-                    UpdateCards?.Invoke(this, updates);
+                    if (updates.Any())
+                        UpdateCards?.Invoke(this, updates);
                 }
             }
 
