@@ -2,14 +2,16 @@
 {
     class ImportIssueTask : Common.TaskItem<TrelloService>
     {
+        public int IssueId { get; }
         public string Project { get; }
 
         public string Subject { get; }
 
         public string Status { get; }
 
-        public ImportIssueTask(string project, string subject, string status) 
+        public ImportIssueTask(int issueId, string project, string subject, string status) 
         {
+            IssueId = issueId;
             Project = project;
             Subject = subject;
             Status = status;

@@ -2,6 +2,7 @@
 {
     using System;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using System.Collections.Generic;
 
@@ -9,6 +10,19 @@
     using Redmine2Trello.Services.Trello.Tasks;
 
     using Manatee.Trello;
+
+    class NewCardEventArgs
+    {
+        public int IssueId { get; }
+
+        public ICard Card { get; }
+
+        public NewCardEventArgs(int issueId, ICard card) 
+        {
+            IssueId = issueId;
+            Card = card;
+        }
+    }
 
     class TrelloService : TaskService, IDisposable
     {
@@ -19,12 +33,14 @@
         private TrelloFactory _factory;
         private Dictionary<string, string> _cards2list;
         private TaskQueue<TaskItem<TrelloService>> _queue;
+        private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
 
         #region Events
 
         public event EventHandler<IBoard> NewBoard;
+        public event EventHandler<NewCardEventArgs> NewCard;
 
         public event EventHandler<ICard[]> UpdateCards;
 
@@ -37,6 +53,7 @@
             TrelloAuthorization.Default.AppKey = options.AppKey;
             TrelloAuthorization.Default.UserToken = options.Token;
 
+            _cancellationSource = new CancellationTokenSource();
             _options = options;
             _factory = new TrelloFactory();
             _cards2list = new Dictionary<string, string>();
@@ -66,6 +83,7 @@
             if (!_queue.HasEnabled())
                 return;
 
+            _cancellationSource.Cancel();
             _queue.Stop();
         }
 
@@ -74,45 +92,55 @@
             _queue.Enqueue(task);
         }
 
-        public async void Handle(ImportIssueTask task)
+        public void Handle(ImportIssueTask task)
         {
-            _me ??= await _factory.Me();
+            _me = _me ?? _factory.Me().Result;
+            _me.Boards.Refresh(true, ct: _cancellationSource.Token).Wait();
 
-            IBoard board = _me.Boards.FirstOrDefault(a => a.Name != task.Project);
+            // TODO Add parameter task boardId is not new.
+            IBoard board = _me.Boards.FirstOrDefault(a => a.Name == task.Project);
             if (board == null)
             {
-                board = await _me.Boards.Add(task.Project);
+                board = _me.Boards.Add(task.Project, ct: _cancellationSource.Token).Result;
+
                 _options.Sync.BoardIds.Add(board.Id);
                 NewBoard?.Invoke(this, board);
             }
 
-            IList list = board.Lists.FirstOrDefault(a => a.Name == task.Status) ?? await board.Lists.Add(task.Status);
-            ICard card = list.Cards.FirstOrDefault(a => a.Name == task.Subject) ?? await list.Cards.Add(task.Subject);
-        }
-
-        public async void Handle(UpdateListTask task)
-        {
-            IBoard board = _factory.Board(task.BoardId);
-            await board.Lists.Refresh(true);
-            foreach (string list in task.Lists)
+            board.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
+            ICard card = board.Cards.FirstOrDefault(a => a.Name == task.Subject);
+            if (card == null)
             {
-                if (board.Lists.All(a => a.Name != list))
-                {
-                    await board.Lists.Add(list);
-                }
+                board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+                IList list = board.Lists.FirstOrDefault(a => a.Name == task.Status) ?? board.Lists.Add(task.Status, ct: _cancellationSource.Token).Result;
+
+                card = list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
+                _cards2list[card.Id] = card.List.Id;
+                NewCard?.Invoke(this, new NewCardEventArgs(task.IssueId, card));
             }
         }
 
-        public async void Handle(SyncListTask task)
+        public void Handle(UpdateListTask task)
+        {
+            IBoard board = _factory.Board(task.BoardId);
+            board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+            foreach (string list in task.Lists)
+            {
+                if (board.Lists.All(a => a.Name != list))
+                    board.Lists.Add(list, ct: _cancellationSource.Token);
+            }
+        }
+
+        public void Handle(SyncListTask task)
         {
             foreach (string boardId in task.SyncOptions.BoardIds)
             {
                 IBoard board = _factory.Board(boardId);
 
-                await board.Lists.Refresh(true);
+                board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
                 foreach (IList list in board.Lists)
                 {
-                    await list.Cards.Refresh(true);
+                    list.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
 
                     ICard[] updates = list.Cards
                         .Where(w =>

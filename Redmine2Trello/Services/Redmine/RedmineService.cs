@@ -4,6 +4,7 @@
     using System.Linq;
     using System.Collections.Generic;
     using System.Collections.Specialized;
+    using System.Threading;
     using System.Threading.Tasks;
 
     using Redmine2Trello.Common;
@@ -18,9 +19,10 @@
 
         private IRedmineOptions _options;
         private RedmineManager _manager;
-        private TaskQueue<TaskItem<RedmineService>> _queue;
         private Dictionary<int, Issue> _issues;
         private Dictionary<int, IssueStatus> _statuses;
+        private TaskQueue<TaskItem<RedmineService>> _queue;
+        private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
 
@@ -35,12 +37,12 @@
 
         public RedmineService(IRedmineOptions options)
         {
-
             _issues = new Dictionary<int, Issue>();
             _statuses = new Dictionary<int, IssueStatus>();
 
+            _cancellationSource = new CancellationTokenSource();
             _options = options;
-            _manager = new RedmineManager(options.Host, options.ApiKey);
+            _manager = new RedmineManager(options.Host, options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue = new TaskQueue<TaskItem<RedmineService>>(task => task.Handle(this));
         }
 
@@ -61,6 +63,7 @@
 
             _queue.Start();
 
+            Enqueue(new SyncStatusesTask());
             Enqueue(new SyncIssuesTask(_options.Sync));
         }
 
@@ -69,6 +72,7 @@
             if (!_queue.HasEnabled())
                 return;
 
+            _cancellationSource.Cancel();
             _queue.Stop();
         }
 
@@ -77,21 +81,21 @@
             _queue.Enqueue(task);
         }
 
-        public async void Handle(UpdateIssueTask task)
+        public void Handle(UpdateIssueTask task)
         {
-            Issue issue = await _manager.Get<Issue>(task.IssueId.ToString(), null);
-            IssueStatus status = await _manager.Get<IssueStatus>(task.StatusId.ToString(), null);
+            Issue issue = Task.Run(() => _manager.Get<Issue>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
+            IssueStatus status = Task.Run(() => _manager.Get<IssueStatus>(task.StatusId.ToString(), null), _cancellationSource.Token).Result;
 
             issue.Status = status;
 
-            issue = await _manager.Update(task.IssueId.ToString(), issue);
+            issue = Task.Run(() => _manager.Update(task.IssueId.ToString(), issue), _cancellationSource.Token).Result;
             if (!_issues.ContainsKey(issue.Id))
                 _issues[issue.Id] = issue;
         }
 
-        public async void Handle(SyncStatusesTask task)
+        public void Handle(SyncStatusesTask task)
         {
-            List<IssueStatus> statuses = await _manager.ListAll<IssueStatus>(new NameValueCollection());
+            List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
 
             IssueStatus[] updates = statuses
                 .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
@@ -113,16 +117,18 @@
                 });
         }
 
-        public async void Handle(SyncIssuesTask task)
+        public void Handle(SyncIssuesTask task)
         {
-            List<Issue> issues = await _manager.ListAll<Issue>(
-                new NameValueCollection()
-                {
-                    { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.AssignedId.ToString() },
-                });
+            List<Issue> issues = Task.Run(() => 
+                _manager.ListAll<Issue>(
+                    new NameValueCollection()
+                    {
+                        { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.AssignedId.ToString() },
+                    }), 
+                _cancellationSource.Token).Result;
 
             Issue[] updates = issues
-                .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Equals(w))
+                .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Status.Equals(w.Status))
                 .ToArray();
 
             foreach (Issue issue in updates)

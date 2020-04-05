@@ -127,7 +127,7 @@
                         _execute?.Invoke(task);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Ignore.
                 }

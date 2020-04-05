@@ -23,7 +23,7 @@
             {
                 Host = "https://orpo-redmine.elcom.local",
                 ApiKey = "eec8386ba3d9331095224f88f8001d5af31c07bc",
-                Interval = 300,
+                Interval = 500,
                 AssignedId = 163,
             };
             //Parser.Default
@@ -35,8 +35,8 @@
             {
                 AppKey = "dc215d5027ab3a15a00f77c98003867b",
                 Token = "2279e282db22528326b881a4d77273f1241d0486ff60da3f303509b736a82937",
-                Interval = 300,
-                BoardIds = new[] { "5e817523f06574698d25cbdc" }
+                Interval = 500,
+                BoardIds = new List<string>() { "5e817523f06574698d25cbdc" }
             };
             //Parser.Default
             //    .ParseArguments<TrelloOptions>(args)
@@ -52,28 +52,35 @@
                         mapperStatus[status.Name] = status.Id;
                     }
                 };
-                redmine.UpdateIssues += (s, issues) => 
+                redmine.UpdateIssues += (s, issues) =>
                 {
                     foreach (var issue in issues)
                     {
-                        issues2Card[issue.Id] = null;
-                        trello.Enqueue(new ImportIssueTask(issue.Project.Name, issue.Subject, issue.Status.Name));
+                        //issues2Card[issue.Id] = null;
+                        trello.Enqueue(new ImportIssueTask(issue.Id, issue.Project.Name, issue.Subject, issue.Status.Name));
                     }
                 };
-                trello.NewBoard += (s, board) => 
+
+                trello.NewCard += (s, args) =>
+                {
+                    issues2Card[args.IssueId] = args.Card.Id;
+                    card2Issues[args.Card.Id] = args.IssueId;
+                };
+                trello.NewBoard += (s, board) =>
                 {
                     trello.Enqueue(new UpdateListTask(board.Id, mapperStatus.Keys.ToArray()));
                 };
-                trello.UpdateCards += (s, cards) => 
+                trello.UpdateCards += (s, cards) =>
                 {
                     try
                     {
                         foreach (var card in cards)
                         {
-                            redmine.Enqueue(new UpdateIssueTask(card2Issues[card.Id], mapperStatus[card.List.Name]));
+                            if (card2Issues.ContainsKey(card.Id))
+                                redmine.Enqueue(new UpdateIssueTask(card2Issues[card.Id], mapperStatus[card.List.Name]));
                         }
                     }
-                    catch 
+                    catch
                     {
                         // Ignore.
                     }
