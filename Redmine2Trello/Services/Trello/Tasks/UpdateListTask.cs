@@ -1,20 +1,22 @@
 ﻿namespace Redmine2Trello.Services.Trello.Tasks
 {
+    using System;
+
     class UpdateListTask : Common.TaskItem<TrelloService>
     {
         public string BoardId { get; }
 
         public string[] Lists { get; }
 
-        public UpdateListTask(string boardId, string[] lists)
+        public UpdateListTask(string boardId, string[] lists, Action<bool> callback = null) : base(callback)
         {
             BoardId = boardId;
             Lists = lists;
         }
 
-        public override void Handle(TrelloService service) 
+        public override bool HandleImpl(TrelloService service) 
         {
-            service.Handle(this);
+            return service.Handle(this);
         }
     }
 }

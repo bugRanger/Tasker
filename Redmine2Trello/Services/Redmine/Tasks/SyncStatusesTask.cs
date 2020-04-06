@@ -1,10 +1,16 @@
-﻿namespace Redmine2Trello.Services.Redmine.Tasks
+﻿using System;
+
+namespace Redmine2Trello.Services.Redmine.Tasks
 {
     class SyncStatusesTask : Common.TaskItem<RedmineService>
     {
-        public override void Handle(RedmineService service)
+        public SyncStatusesTask(Action<bool> callback = null) : base(callback)
         {
-            service.Handle(this);
+        }
+
+        public override bool HandleImpl(RedmineService service)
+        {
+            return service.Handle(this);
         }
     }
 }

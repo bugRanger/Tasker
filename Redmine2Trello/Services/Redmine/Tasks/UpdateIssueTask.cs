@@ -1,6 +1,7 @@
 ﻿namespace Redmine2Trello.Services.Redmine.Tasks
 {
     using Common;
+    using System;
 
     class UpdateIssueTask : TaskItem<RedmineService>
     {
@@ -8,15 +9,15 @@
 
         public int StatusId { get; }
 
-        public UpdateIssueTask(int issueId, int statusId) 
+        public UpdateIssueTask(int issueId, int statusId, Action<bool> callback = null) : base(callback)
         {
             IssueId = issueId;
             StatusId = statusId;
         }
 
-        public override void Handle(RedmineService service)
+        public override bool HandleImpl(RedmineService service)
         {
-            service.Handle(this);
+            return service.Handle(this);
         }
     }
 }

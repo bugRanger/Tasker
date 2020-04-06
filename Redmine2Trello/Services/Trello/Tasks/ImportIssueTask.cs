@@ -1,25 +1,19 @@
 ﻿namespace Redmine2Trello.Services.Trello.Tasks
 {
+    using System;
+    
     class ImportIssueTask : Common.TaskItem<TrelloService>
     {
-        public int IssueId { get; }
-        public string Project { get; }
+        public IssueCard IssueCard { get; }
 
-        public string Subject { get; }
-
-        public string Status { get; }
-
-        public ImportIssueTask(int issueId, string project, string subject, string status) 
+        public ImportIssueTask(IssueCard issueCard, Action<bool> callback = null) : base(callback)
         {
-            IssueId = issueId;
-            Project = project;
-            Subject = subject;
-            Status = status;
+            IssueCard = issueCard;
         }
 
-        public override void Handle(TrelloService service)
+        public override bool HandleImpl(TrelloService service)
         {
-            service.Handle(this);
+            return service.Handle(this);
         }
     }
 }

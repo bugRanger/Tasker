@@ -1,17 +1,19 @@
 ﻿namespace Redmine2Trello.Services.Trello.Tasks
 {
+    using System;
+
     class SyncListTask : Common.TaskItem<TrelloService>
     {
         public ITrelloSync SyncOptions { get; }
 
-        public SyncListTask(ITrelloSync syncOptions)
+        public SyncListTask(ITrelloSync syncOptions, Action<bool> callback = null) : base(callback)
         {
             SyncOptions = syncOptions;
         }
 
-        public override void Handle(TrelloService service) 
+        public override bool HandleImpl(TrelloService service) 
         {
-            service.Handle(this);
+            return service.Handle(this);
         }
     }
 }

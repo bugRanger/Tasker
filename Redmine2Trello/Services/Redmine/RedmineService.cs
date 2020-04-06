@@ -81,19 +81,19 @@
             _queue.Enqueue(task);
         }
 
-        public void Handle(UpdateIssueTask task)
+        public bool Handle(UpdateIssueTask task)
         {
             Issue issue = Task.Run(() => _manager.Get<Issue>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
-            IssueStatus status = Task.Run(() => _manager.Get<IssueStatus>(task.StatusId.ToString(), null), _cancellationSource.Token).Result;
-
-            issue.Status = status;
+            issue.Status = new IssueStatus() { Id = task.StatusId };
 
             issue = Task.Run(() => _manager.Update(task.IssueId.ToString(), issue), _cancellationSource.Token).Result;
             if (!_issues.ContainsKey(issue.Id))
                 _issues[issue.Id] = issue;
+
+            return true;
         }
 
-        public void Handle(SyncStatusesTask task)
+        public bool Handle(SyncStatusesTask task)
         {
             List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
 
@@ -107,7 +107,6 @@
             if (updates.Any())
                 UpdateStatuses?.Invoke(this, updates);
 
-
             // TODO Move to callback.
             if (_queue.HasEnabled())
                 _ = Task.Run(async () =>
@@ -115,16 +114,18 @@
                     await Task.Delay(_options.Sync.Interval);
                     Enqueue(new SyncStatusesTask());
                 });
+
+            return true;
         }
 
-        public void Handle(SyncIssuesTask task)
+        public bool Handle(SyncIssuesTask task)
         {
-            List<Issue> issues = Task.Run(() => 
+            List<Issue> issues = Task.Run(() =>
                 _manager.ListAll<Issue>(
                     new NameValueCollection()
                     {
                         { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.AssignedId.ToString() },
-                    }), 
+                    }),
                 _cancellationSource.Token).Result;
 
             Issue[] updates = issues
@@ -144,6 +145,8 @@
                     await Task.Delay(task.SyncOptions.Interval);
                     Enqueue(new SyncIssuesTask(task.SyncOptions));
                 });
+
+            return true;
         }
 
         #endregion Methods

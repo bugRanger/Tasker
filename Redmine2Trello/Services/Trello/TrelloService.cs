@@ -10,20 +10,7 @@
     using Redmine2Trello.Services.Trello.Tasks;
 
     using Manatee.Trello;
-
-    class NewCardEventArgs
-    {
-        public int IssueId { get; }
-
-        public ICard Card { get; }
-
-        public NewCardEventArgs(int issueId, ICard card) 
-        {
-            IssueId = issueId;
-            Card = card;
-        }
-    }
-
+    
     class TrelloService : TaskService, IDisposable
     {
         #region Fields
@@ -31,7 +18,7 @@
         private IMe _me;
         private ITrelloOptions _options;
         private TrelloFactory _factory;
-        private Dictionary<string, string> _cards2list;
+        private Dictionary<string, IBoard> _boards;
         private TaskQueue<TaskItem<TrelloService>> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -40,9 +27,8 @@
         #region Events
 
         public event EventHandler<IBoard> NewBoard;
-        public event EventHandler<NewCardEventArgs> NewCard;
-
-        public event EventHandler<ICard[]> UpdateCards;
+        public event EventHandler<ICard> UpdateCard;
+        public event EventHandler<IssueCard> ImportCard;
 
         #endregion Events
 
@@ -56,7 +42,7 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _factory = new TrelloFactory();
-            _cards2list = new Dictionary<string, string>();
+            _boards = new Dictionary<string, IBoard>();
             _queue = new TaskQueue<TaskItem<TrelloService>>(task => task.Handle(this));
         }
 
@@ -92,35 +78,52 @@
             _queue.Enqueue(task);
         }
 
-        public void Handle(ImportIssueTask task)
+        public bool Handle(ImportIssueTask task)
         {
             _me = _me ?? _factory.Me().Result;
             _me.Boards.Refresh(true, ct: _cancellationSource.Token).Wait();
 
             // TODO Add parameter task boardId is not new.
-            IBoard board = _me.Boards.FirstOrDefault(a => a.Name == task.Project);
+            IBoard board = _me.Boards.FirstOrDefault(a => a.Name == task.IssueCard.Project);
             if (board == null)
             {
-                board = _me.Boards.Add(task.Project, ct: _cancellationSource.Token).Result;
-
-                _options.Sync.BoardIds.Add(board.Id);
+                board = _me.Boards.Add(task.IssueCard.Project, ct: _cancellationSource.Token).Result;
                 NewBoard?.Invoke(this, board);
             }
 
+            _options.Sync.BoardIds.Add(board.Id);
+
+            board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+            IList list = 
+                board.Lists.FirstOrDefault(a => a.Name == task.IssueCard.Status) ?? 
+                board.Lists.Add(task.IssueCard.Status, ct: _cancellationSource.Token).Result;
+
             board.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
-            ICard card = board.Cards.FirstOrDefault(a => a.Name == task.Subject);
+            ICard card = board.Cards.FirstOrDefault(a => a.Name == task.IssueCard.Subject);
+
             if (card == null)
             {
-                board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
-                IList list = board.Lists.FirstOrDefault(a => a.Name == task.Status) ?? board.Lists.Add(task.Status, ct: _cancellationSource.Token).Result;
-
-                card = list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
-                _cards2list[card.Id] = card.List.Id;
-                NewCard?.Invoke(this, new NewCardEventArgs(task.IssueId, card));
+                card = list.Cards.Add(task.IssueCard.Subject, ct: _cancellationSource.Token).Result;
             }
+            else if (card.List.Id != list.Id)
+            {
+                card.List = list;
+            }
+
+            ImportCard?.Invoke(this, 
+                new IssueCard()
+                {
+                    CardId = card.Id,
+                    IssueId = task.IssueCard.IssueId,
+                    Project = task.IssueCard.Project,
+                    Subject = task.IssueCard.Subject,
+                    Status = card.List.Name
+                });
+
+            return true;
         }
 
-        public void Handle(UpdateListTask task)
+        public bool Handle(UpdateListTask task)
         {
             IBoard board = _factory.Board(task.BoardId);
             board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
@@ -129,30 +132,24 @@
                 if (board.Lists.All(a => a.Name != list))
                     board.Lists.Add(list, ct: _cancellationSource.Token);
             }
+
+            return true;
         }
 
-        public void Handle(SyncListTask task)
+        public bool Handle(SyncListTask task)
         {
             foreach (string boardId in task.SyncOptions.BoardIds)
             {
-                IBoard board = _factory.Board(boardId);
+                if (!_boards.ContainsKey(boardId))
+                    _boards[boardId] = _factory.Board(boardId);
 
-                board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
-                foreach (IList list in board.Lists)
+                _boards[boardId].Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+                foreach (IList list in _boards[boardId].Lists)
                 {
-                    list.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
-
-                    ICard[] updates = list.Cards
-                        .Where(w =>
-                            !_cards2list.ContainsKey(w.Id) ||
-                            _cards2list[w.Id] != w.List.Id)
-                        .ToArray();
-
-                    foreach (ICard card in updates)
-                        _cards2list[card.Id] = card.List.Id;
-
-                    if (updates.Any())
-                        UpdateCards?.Invoke(this, updates);
+                    foreach (ICard card in list.Cards)
+                    {
+                        UpdateCard?.Invoke(this, card);
+                    }
                 }
             }
 
@@ -162,6 +159,8 @@
                     await Task.Delay(_options.Sync.Interval);
                     Enqueue(new SyncListTask(_options.Sync));
                 });
+
+            return true;
         }
 
         #endregion Methods
