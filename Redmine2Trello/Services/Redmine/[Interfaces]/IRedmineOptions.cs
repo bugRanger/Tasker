@@ -6,6 +6,8 @@
 
         string ApiKey { get; }
 
+        float EstimatedHoursABS { get; }
+
         IRedmineSync Sync { get; }
     }
 }

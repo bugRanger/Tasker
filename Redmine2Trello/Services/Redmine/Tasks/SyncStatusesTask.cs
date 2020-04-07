@@ -8,7 +8,7 @@ namespace Redmine2Trello.Services.Redmine.Tasks
         {
         }
 
-        public override bool HandleImpl(RedmineService service)
+        protected override bool HandleImpl(RedmineService service)
         {
             return service.Handle(this);
         }

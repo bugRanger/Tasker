@@ -12,7 +12,7 @@
             Callback = callback;
         }
 
-        public abstract bool HandleImpl(TService service);
+        protected abstract bool HandleImpl(TService service);
 
         public void Handle(TService service) 
         {

@@ -14,7 +14,7 @@
             Lists = lists;
         }
 
-        public override bool HandleImpl(TrelloService service) 
+        protected override bool HandleImpl(TrelloService service) 
         {
             return service.Handle(this);
         }

@@ -26,6 +26,7 @@
                 ApiKey = "eec8386ba3d9331095224f88f8001d5af31c07bc",
                 Interval = 100,
                 AssignedId = 163,
+                EstimatedHoursABS = 16,
             };
             //Parser.Default
             //    .ParseArguments<RedmineOptions>(args)
@@ -58,13 +59,15 @@
                     foreach (var issue in issues)
                     {
                         if (!issueId2Card.ContainsKey(issue.Id) || mapperStatus[issueId2Card[issue.Id].Status] != issue.Status.Id)
-                            trello.Enqueue(new ImportIssueTask(new IssueCard() 
+                        {
+                            trello.Enqueue(new ImportIssueTask(new IssueCard()
                             {
                                 IssueId = issue.Id,
                                 Project = issue.Project.Name,
                                 Subject = issue.Subject,
                                 Status = issue.Status.Name,
                             }));
+                        }
                     }
                 };
 
@@ -84,9 +87,20 @@
                         return;
 
                     if (cardId2Issue[card.Id].Status != card.List.Name)
-                        redmine.Enqueue(new UpdateIssueTask(cardId2Issue[card.Id].IssueId, mapperStatus[card.List.Name]));
+                        redmine.Enqueue(new UpdateIssueTask(cardId2Issue[card.Id].IssueId, mapperStatus[card.List.Name],
+                            result =>
+                            {
+                                if (!result)
+                                {
+                                    trello.Enqueue(new ImportIssueTask(cardId2Issue[card.Id]));
+                                    return;
+                                }
+
+                                // TODO Add script for redmine actions on change status.
+                                redmine.Enqueue(new AddTimeIssueTask(cardId2Issue[card.Id].IssueId, 0.5m));
+                            }));
                 };
-                
+
                 redmine.Start();
                 trello.Start();
 

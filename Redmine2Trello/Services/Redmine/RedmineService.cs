@@ -81,10 +81,32 @@
             _queue.Enqueue(task);
         }
 
+        public bool Handle(AddTimeIssueTask task)
+        {
+            if(!_issues.ContainsKey(task.IssueId))
+                return false;
+         
+            // TODO Add time for issue.   
+            Task.Run(() => _manager.Create(new TimeEntry()
+            {
+                Issue = new IdentifiableName() { Id = _issues[task.IssueId].Id },
+                Project = _issues[task.IssueId].Project,
+                Hours = task.Hours,
+                Comments = task.Comments,                
+            }), 
+            _cancellationSource.Token).Wait();
+
+            return true;
+        }
+
         public bool Handle(UpdateIssueTask task)
         {
             Issue issue = Task.Run(() => _manager.Get<Issue>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
+
+            // TODO Add script for redmine actions on change status.
             issue.Status = new IssueStatus() { Id = task.StatusId };
+            if (issue.EstimatedHours == null) 
+                issue.EstimatedHours =  _options.EstimatedHoursABS;
 
             issue = Task.Run(() => _manager.Update(task.IssueId.ToString(), issue), _cancellationSource.Token).Result;
             if (!_issues.ContainsKey(issue.Id))
