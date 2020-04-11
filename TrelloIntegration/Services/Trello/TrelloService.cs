@@ -119,7 +119,10 @@
             {
                 card.List = list;
             }
+
             _cards[card.Id] = card;
+
+            card.Description = task.Description;
 
             return card.Id;
         }

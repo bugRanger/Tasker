@@ -23,7 +23,7 @@
                 Host = "https://orpo-redmine.elcom.local",
                 ApiKey = "eec8386ba3d9331095224f88f8001d5af31c07bc",
                 Interval = 100,
-                AssignedId = 163,
+                UserId = 163,
                 EstimatedHoursABS = 8,
             };
             //Parser.Default

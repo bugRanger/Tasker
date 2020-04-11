@@ -135,7 +135,7 @@
                 _manager.ListAll<Issue>(
                     new NameValueCollection()
                     {
-                        { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.AssignedId.ToString() },
+                        { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.UserId.ToString() },
                     }),
                 _cancellationSource.Token).Result;
 

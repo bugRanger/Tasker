@@ -18,7 +18,7 @@
         [Option("rm_estimated", Required = true, ResourceType = typeof(float))]
         public float EstimatedHoursABS { get; set; }
 
-        [Option("rm_assigned", Required = true, ResourceType = typeof(int))]
-        public int AssignedId { get; set; }
+        [Option("rm_userid", Required = true, ResourceType = typeof(int))]
+        public int UserId { get; set; }
     }
 }

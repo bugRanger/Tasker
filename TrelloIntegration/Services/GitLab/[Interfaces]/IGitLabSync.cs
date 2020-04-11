@@ -1,6 +1,6 @@
 ﻿namespace TrelloIntegration.Services
 {
-    interface IRedmineSync 
+    interface IGitLabSync 
     {
         int Interval { get; }
 
