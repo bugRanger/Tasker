@@ -71,7 +71,6 @@
 
             _queue.Start();
 
-
             Enqueue(new SyncListTask(_options.Sync));
         }
 

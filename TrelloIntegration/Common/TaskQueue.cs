@@ -114,7 +114,7 @@
 
         private void HandleTask()
         {
-            while (true)
+            while (_locker.HasEnabled())
             {
                 var startTime = Environment.TickCount64 & Int64.MaxValue;
 

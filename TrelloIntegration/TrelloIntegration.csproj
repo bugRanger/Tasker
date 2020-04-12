@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.7.82" />
     <PackageReference Include="GitLabApiClient" Version="1.5.0" />
     <PackageReference Include="Manatee.Trello" Version="4.3.0" />
     <PackageReference Include="redmine-netcore10-api" Version="2.0.1" />
