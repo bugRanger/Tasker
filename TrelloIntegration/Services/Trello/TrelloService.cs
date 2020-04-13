@@ -35,23 +35,9 @@
 
         public TrelloService(ITrelloOptions options)
         {
-            TrelloAuthorization.Default.AppKey = options.AppKey;
-            TrelloAuthorization.Default.UserToken = options.Token;
-
-            TrelloConfiguration.EnableDeepDownloads = false;
-            TrelloConfiguration.EnableConsistencyProcessing = false;
-
-            Card.DownloadedFields = 
-                Card.Fields.List | 
-                Card.Fields.Name | 
-                Card.Fields.Labels | 
-                Card.Fields.Attachments | 
-                Card.Fields.Comments;
-
             _cards = new Dictionary<string, ICard>();
             _cancellationSource = new CancellationTokenSource();
             _options = options;
-            _factory = new TrelloFactory();
             _queue = new TaskQueue<TrelloService>(task => task.Handle(this));
         }
 
@@ -68,6 +54,21 @@
         {
             if (_queue.HasEnabled())
                 return;
+
+            TrelloAuthorization.Default.AppKey = _options.AppKey;
+            TrelloAuthorization.Default.UserToken = _options.Token;
+            
+            _factory = _factory ?? new TrelloFactory();
+
+            TrelloConfiguration.EnableDeepDownloads = false;
+            TrelloConfiguration.EnableConsistencyProcessing = false;
+
+            Card.DownloadedFields =
+                Card.Fields.List |
+                Card.Fields.Name |
+                Card.Fields.Labels |
+                Card.Fields.Attachments |
+                Card.Fields.Comments;
 
             _queue.Start();
 
