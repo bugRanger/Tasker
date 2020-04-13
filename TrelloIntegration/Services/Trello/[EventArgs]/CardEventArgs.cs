@@ -1,18 +1,12 @@
-﻿namespace TrelloIntegration.Services
+﻿namespace TrelloIntegration.Services.Trello
 {
-    class CardEventArgs 
+    abstract class CardEventArgs
     {
         public string CardId { get; }
 
-        public string StatusOld { get; }
-
-        public string StatusNew { get; }
-
-        public CardEventArgs(string cardId, string statusOld, string statusNew) 
+        protected CardEventArgs(string cardId) 
         {
             CardId = cardId;
-            StatusOld = statusOld;
-            StatusNew = statusNew;
         }
     }
 }

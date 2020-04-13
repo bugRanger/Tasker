@@ -7,6 +7,7 @@
     using System.Collections.Generic;
 
     using TrelloIntegration.Common;
+    using TrelloIntegration.Services.Trello;
     using TrelloIntegration.Services.Trello.Tasks;
 
     using Manatee.Trello;
@@ -27,7 +28,8 @@
         #region Events
 
         public event EventHandler<BroadEventArgs> CreateBoard;
-        public event EventHandler<CardEventArgs> UpdateStatus;
+        public event EventHandler<StatusEventArgs> UpdateStatus;
+        public event EventHandler<TextEventArgs> UpdateComments;
 
         #endregion Events
 
@@ -57,7 +59,7 @@
 
             TrelloAuthorization.Default.AppKey = _options.AppKey;
             TrelloAuthorization.Default.UserToken = _options.Token;
-            
+
             _factory = _factory ?? new TrelloFactory();
 
             TrelloConfiguration.EnableDeepDownloads = false;
@@ -91,7 +93,7 @@
 
         public string Handle(ImportCardTask task)
         {
-            _me = _me ?? _factory.Me().Result;
+            _me = _me ?? _factory.Me(ct: _cancellationSource.Token).Result;
             _me.Boards.Refresh(ct: _cancellationSource.Token).Wait();
 
             IBoard board = _me.Boards.FirstOrDefault(a => a.Name == task.Project);
@@ -119,7 +121,6 @@
             {
                 card.List = list;
             }
-
             _cards[card.Id] = card;
 
             card.Description = task.Description;
@@ -144,13 +145,20 @@
         {
             foreach (ICard card in _cards.Values)
             {
+                // Not use action refresh, it is memory leak.
                 string listId = card.List.Id;
                 string listName = card.List.Name;
+                int commentCount = card.Comments.Count();
 
                 card.Refresh(true, ct: _cancellationSource.Token).Wait();
 
                 if (card.List.Id != listId)
-                    UpdateStatus?.Invoke(this, new CardEventArgs(card.Id, listName, card.List.Name));
+                    UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
+
+                if (card.Comments.Count() != commentCount && 
+                    commentCount < card.Comments.Count())
+                    for (int i = 0; i < card.Comments.Count() - commentCount; i++)
+                        UpdateComments?.Invoke(this, new TextEventArgs(card.Id, card.Comments[i].Data.Text, card.Comments[i].Creator.Id == _me.Id));
             }
 
             if (_queue.HasEnabled())

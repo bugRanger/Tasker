@@ -5,19 +5,21 @@
     using System.Linq;
     using System.Text.Json;
     using System.Collections.Generic;
-    using System.Threading.Tasks;
 
     using TrelloIntegration.Services;
     using TrelloIntegration.Services.Trello.Tasks;
     using TrelloIntegration.Services.GitLab.Tasks;
     using TrelloIntegration.Services.Redmine.Tasks;
     using TrelloIntegration.Common;
+    using System.Text.RegularExpressions;
 
     partial class Program
     {
         const string GITLAB_OPTIONS_FILE = "gitlabOptions.json";
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
+
+        const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) - (.*$)";
 
         const int IN_PROGRESS_STATUS = 22;
 
@@ -76,16 +78,32 @@
                         // TODO Add filter for status.
                         trello.Enqueue(new UpdateListTask(args.BroadId, mapperStatus.Keys.ToArray()));
                     };
+                    trello.UpdateComments += (s, args) =>
+                    {
+                        if (!cardId2Issue.ContainsKey(args.CardId) ||
+                            !args.IsMy)
+                            return;
+
+                        var matches = Regex.Matches(args.Text, TRELLO_CMD_UPDATE_TIME);
+                        if (matches.Count > 0 && 
+                            matches[0].Success &&
+                            decimal.TryParse(matches[0].Groups[1].Value.Replace('.', ','), out decimal hours))
+                            redmine.Enqueue(
+                                new UpdateWorkTimeTask(
+                                    cardId2Issue[args.CardId].IssueId, 
+                                    hours, 
+                                    matches[0].Groups[3].Value));
+                    };
                     trello.UpdateStatus += (s, args) =>
                     {
                         if (!cardId2Issue.ContainsKey(args.CardId) ||
-                            !mapperStatus.ContainsKey(args.StatusNew))
+                            !mapperStatus.ContainsKey(args.CurrentStatus))
                             return;
 
                         var hours = Convert.ToDecimal((DateTime.Now - cardId2Issue[args.CardId].UpdateDT).Value.TotalHours);
 
-                        if (cardId2Issue[args.CardId].Status != args.StatusNew)
-                            redmine.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.StatusNew],
+                        if (cardId2Issue[args.CardId].Status != args.CurrentStatus)
+                            redmine.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus],
                                 result =>
                                 {
                                     if (!result)
@@ -101,7 +119,7 @@
                                     }
 
                                     // TODO Add script for redmine actions on change status.
-                                    if (mapperStatus[args.StatusOld] == IN_PROGRESS_STATUS)
+                                    if (mapperStatus[args.PrevStatus] == IN_PROGRESS_STATUS)
                                         redmine.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId, hours));
                                 }));
                     };
