@@ -18,7 +18,9 @@
         const string GITLAB_OPTIONS_FILE = "gitlabOptions.json";
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
-        
+
+        const int IN_PROGRESS_STATUS = 22;
+
         static void Main(string[] args)
         {
             var mapperStatus = new Dictionary<string, int>();
@@ -97,7 +99,7 @@
                                     }
 
                                 // TODO Add script for redmine actions on change status.
-                                if (mapperStatus[args.StatusOld] == 22)
+                                if (mapperStatus[args.StatusOld] == IN_PROGRESS_STATUS)
                                         redmine.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId));
                                 }));
                     };
