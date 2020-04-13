@@ -1,5 +1,7 @@
 ﻿namespace TrelloIntegration.Services
 {
+    using System;
+
     class IssueEntity
     {
         /// <summary>
@@ -19,5 +21,7 @@
         public string Subject { get; set; }
         
         public string Status { get; set; }
+
+        public DateTime? UpdateDT { get; set; }
     }    
 }

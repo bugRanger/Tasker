@@ -82,12 +82,8 @@
         {
             if (!_issues.ContainsKey(task.IssueId))
                 return false;
-
-            decimal hours = 
-                task.Hours ?? 
-                Convert.ToDecimal((DateTime.Now - (_issues[task.IssueId].UpdatedOn ?? _issues[task.IssueId].CreatedOn)).Value.TotalHours);
-
-            hours = decimal.Round(hours, 1);
+            
+            var hours = decimal.Round(task.Hours, 1);
             if (hours == 0)
                 return false;
 

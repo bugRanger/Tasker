@@ -20,7 +20,7 @@
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
         const int IN_PROGRESS_STATUS = 22;
-        
+
         static void Main(string[] args)
         {
             var mapperStatus = new Dictionary<string, int>();
@@ -65,6 +65,7 @@
                                             Subject = $"[{issue.Id}] {issue.Subject}",
                                             Discription = issue.Description,
                                             Status = issue.Status.Name,
+                                            UpdateDT = issue.UpdatedOn ?? issue.CreatedOn,
                                         };
                                 }));
                         }
@@ -81,14 +82,16 @@
                             !mapperStatus.ContainsKey(args.StatusNew))
                             return;
 
+                        var hours = Convert.ToDecimal((DateTime.Now - cardId2Issue[args.CardId].UpdateDT).Value.TotalHours);
+
                         if (cardId2Issue[args.CardId].Status != args.StatusNew)
                             redmine.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.StatusNew],
                                 result =>
                                 {
                                     if (!result)
                                     {
-                                    // Return old status.
-                                    trello.Enqueue(
+                                        // Return old status.
+                                        trello.Enqueue(
                                             new ImportCardTask(
                                                 cardId2Issue[args.CardId].Project,
                                                 cardId2Issue[args.CardId].Subject,
@@ -97,9 +100,9 @@
                                         return;
                                     }
 
-                                // TODO Add script for redmine actions on change status.
-                                if (mapperStatus[args.StatusOld] == IN_PROGRESS_STATUS)
-                                        redmine.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId));
+                                    // TODO Add script for redmine actions on change status.
+                                    if (mapperStatus[args.StatusOld] == IN_PROGRESS_STATUS)
+                                        redmine.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId, hours));
                                 }));
                     };
 
