@@ -20,13 +20,12 @@
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
         const int IN_PROGRESS_STATUS = 22;
-
+        
         static void Main(string[] args)
         {
             var mapperStatus = new Dictionary<string, int>();
             var cardId2Issue = new Dictionary<string, IssueEntity>();
 
-            // TODO Replace args to config file.
             TrelloOptions trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             GitLabOptions gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
             RedmineOptions redmineOptions = JsonConfig.Read<RedmineOptions>(REDMINE_OPTIONS_FILE).Result;
