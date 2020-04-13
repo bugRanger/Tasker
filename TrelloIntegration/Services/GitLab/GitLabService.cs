@@ -36,7 +36,6 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<GitLabService>(task => task.Handle(this));
-            _client = new GitLabClient(options.Host, options.Token);
         }
 
         public void Dispose()
@@ -53,6 +52,7 @@
             if (_queue.HasEnabled())
                 return;
 
+            _client = _client ?? new GitLabClient(_options.Host, _options.Token);
             _queue.Start();
 
             Enqueue(new SyncMergeRequestTask(_options.Sync));

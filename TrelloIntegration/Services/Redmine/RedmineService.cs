@@ -39,7 +39,6 @@
             _issues = new Dictionary<int, Issue>();
             _cancellationSource = new CancellationTokenSource();
             _options = options;
-            _manager = new RedmineManager(options.Host, options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue = new TaskQueue<RedmineService>(task => task.Handle(this));
         }
 
@@ -58,6 +57,7 @@
             if (_queue.HasEnabled())
                 return;
 
+            _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
             Enqueue(new SyncStatusesTask());
