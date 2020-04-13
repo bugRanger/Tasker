@@ -11,47 +11,23 @@
     using TrelloIntegration.Services.Trello.Tasks;
     using TrelloIntegration.Services.GitLab.Tasks;
     using TrelloIntegration.Services.Redmine.Tasks;
+    using TrelloIntegration.Common;
 
     partial class Program
     {
         const string GITLAB_OPTIONS_FILE = "gitlabOptions.json";
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
-
-        static async Task WriteOptions<T>(T options, string fileName)
-            where T : class
-        {
-            using (FileStream fs = File.OpenWrite(fileName))
-            {
-                await JsonSerializer.SerializeAsync(fs, options, options.GetType());
-            }
-        }
-
-        static async Task<T> ReadOptions<T>(string fileName)
-            where T : class, new()
-        {
-            try
-            {
-                using (FileStream fs = File.OpenRead(fileName))
-                {
-                    return await JsonSerializer.DeserializeAsync<T>(fs);
-                }
-            }
-            catch
-            {
-                return new T();
-            }
-        }
-
+        
         static void Main(string[] args)
         {
             var mapperStatus = new Dictionary<string, int>();
             var cardId2Issue = new Dictionary<string, IssueEntity>();
 
             // TODO Replace args to config file.
-            TrelloOptions trelloOptions = ReadOptions<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
-            GitLabOptions gitlabOptions = ReadOptions<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
-            RedmineOptions redmineOptions = ReadOptions<RedmineOptions>(REDMINE_OPTIONS_FILE).Result;
+            TrelloOptions trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
+            GitLabOptions gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
+            RedmineOptions redmineOptions = JsonConfig.Read<RedmineOptions>(REDMINE_OPTIONS_FILE).Result;
 
             try
             {
@@ -144,9 +120,9 @@
             }
             finally
             {
-                WriteOptions(trelloOptions, TRELLO_OPTIONS_FILE).Wait();
-                WriteOptions(gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
-                WriteOptions(redmineOptions, REDMINE_OPTIONS_FILE).Wait();
+                JsonConfig.Write(trelloOptions, TRELLO_OPTIONS_FILE).Wait();
+                JsonConfig.Write(gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
+                JsonConfig.Write(redmineOptions, REDMINE_OPTIONS_FILE).Wait();
             }
         }
     }
