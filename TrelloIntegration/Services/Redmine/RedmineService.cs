@@ -29,6 +29,7 @@
 
         public event EventHandler<Issue[]> UpdateIssues;
         public event EventHandler<IssueStatus[]> UpdateStatuses;
+        public event EventHandler<string> Error;
 
         #endregion Events
 
@@ -40,6 +41,7 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<RedmineService>(task => task.Handle(this));
+            _queue.Error += (sender, error) => Error?.Invoke(this, error);
         }
 
         public void Dispose()

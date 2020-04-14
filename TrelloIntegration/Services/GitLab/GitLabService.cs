@@ -26,6 +26,7 @@
         #region Events
 
         public event EventHandler<object> UpdateMergeRequest;
+        public event EventHandler<string> Error;
 
         #endregion Events
 
@@ -36,6 +37,7 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<GitLabService>(task => task.Handle(this));
+            _queue.Error += (sender, error) => Error?.Invoke(this, error);
         }
 
         public void Dispose()

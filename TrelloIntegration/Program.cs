@@ -45,6 +45,7 @@
                 using (var gitlab = new GitLabService(gitlabOptions))
                 using (var redmine = new RedmineService(redmineOptions))
                 {
+                    redmine.Error += (s, error) => Console.WriteLine(error);
                     redmine.UpdateStatuses += (s, statuses) =>
                     {
                         foreach (var status in statuses)
@@ -80,6 +81,7 @@
                         }
                     };
 
+                    trello.Error += (s, error) => Console.WriteLine(error);
                     trello.CreateBoard += (s, args) =>
                     {
                         // TODO Add filter for status.
@@ -130,6 +132,8 @@
                                         redmine.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId, hours));
                                 }));
                     };
+
+                    gitlab.Error += (s, error) => Console.WriteLine(error);
 
                     gitlab.Start();
                     redmine.Start();

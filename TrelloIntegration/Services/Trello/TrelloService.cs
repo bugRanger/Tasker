@@ -43,9 +43,10 @@
         public event EventHandler<BroadEventArgs> CreateBoard;
         public event EventHandler<StatusEventArgs> UpdateStatus;
         public event EventHandler<TextEventArgs> UpdateComments;
+        public event EventHandler<string> Error;
 
         #endregion Events
-        
+
         #region Constructors
 
         public TrelloService(ITrelloOptions options)
@@ -54,6 +55,7 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<TrelloService>(task => task.Handle(this));
+            _queue.Error += (sender, error) => Error?.Invoke(this, error);
         }
 
         public void Dispose()

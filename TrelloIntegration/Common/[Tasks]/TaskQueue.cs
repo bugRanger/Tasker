@@ -65,6 +65,12 @@
 
         #endregion Fields
 
+        #region Events
+
+        public event EventHandler<string> Error;
+
+        #endregion Events
+
         #region Constructor
 
         public TaskQueue(Action<ITaskItem<TService>> execute, int wait = WAIT_DEFAULT)
@@ -130,7 +136,7 @@
                 }
                 catch (Exception ex)
                 {
-                    // Ignore.
+                    Error?.Invoke(this, ex.Message);
                 }
 
                 var endTime = Environment.TickCount64 & Int64.MaxValue;
