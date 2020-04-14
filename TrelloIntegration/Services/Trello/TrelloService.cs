@@ -81,6 +81,8 @@
             TrelloConfiguration.EnableConsistencyProcessing = false;
 
             Card.DownloadedFields = 
+                Card.Fields.Name |
+                Card.Fields.Description |
                 Card.Fields.List |
                 Card.Fields.Actions |
                 Card.Fields.Comments;
@@ -106,7 +108,7 @@
 
         public string Handle(ImportCardTask task)
         {
-            User.Boards.Refresh(true, ct: _cancellationSource.Token).Wait();
+            User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
 
             IBoard board = User.Boards.FirstOrDefault(a => a.Name == task.Project);
             if (board == null)
@@ -115,14 +117,14 @@
                 CreateBoard?.Invoke(this, new BroadEventArgs(board.Id));
             }
 
-            board.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Refresh(ct: _cancellationSource.Token).Wait();
 
-            board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
             IList list =
                 board.Lists.FirstOrDefault(a => a.Name == task.Status) ??
                 board.Lists.Add(task.Status, ct: _cancellationSource.Token).Result;
 
-            board.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
             ICard card = board.Cards.FirstOrDefault(a => a.Name == task.Subject);
 
             if (card == null)
@@ -142,7 +144,7 @@
         public bool Handle(UpdateListTask task)
         {
             IBoard board = _factory.Board(task.BoardId);
-            board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
             foreach (string list in task.Lists)
             {
                 if (board.Lists.All(a => a.Name != list))
