@@ -85,13 +85,13 @@
                             return;
 
                         var matches = Regex.Matches(args.Text, TRELLO_CMD_UPDATE_TIME);
-                        if (matches.Count > 0 && 
+                        if (matches.Count > 0 &&
                             matches[0].Success &&
                             decimal.TryParse(matches[0].Groups[1].Value.Replace('.', ','), out decimal hours))
                             redmine.Enqueue(
                                 new UpdateWorkTimeTask(
-                                    cardId2Issue[args.CardId].IssueId, 
-                                    hours, 
+                                    cardId2Issue[args.CardId].IssueId,
+                                    hours,
                                     matches[0].Groups[3].Value));
                     };
                     trello.UpdateStatus += (s, args) =>

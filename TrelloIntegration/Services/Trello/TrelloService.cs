@@ -67,10 +67,10 @@
 
             Card.DownloadedFields =
                 Card.Fields.List |
-                Card.Fields.Name |
-                Card.Fields.Labels |
-                Card.Fields.Attachments |
-                Card.Fields.Comments;
+                Card.Fields.Name;
+                //Card.Fields.Labels |
+                //Card.Fields.Attachments |
+                //Card.Fields.Comments;
 
             _queue.Start();
 
@@ -103,14 +103,14 @@
                 CreateBoard?.Invoke(this, new BroadEventArgs(board.Id));
             }
 
-            board.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Refresh(ct: _cancellationSource.Token).Wait();
 
-            board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
             IList list =
                 board.Lists.FirstOrDefault(a => a.Name == task.Status) ??
                 board.Lists.Add(task.Status, ct: _cancellationSource.Token).Result;
 
-            board.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
+            board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
             ICard card = board.Cards.FirstOrDefault(a => a.Name == task.Subject);
 
             if (card == null)
@@ -124,7 +124,6 @@
             _cards[card.Id] = card;
 
             card.Description = task.Description;
-
             return card.Id;
         }
 
@@ -150,12 +149,13 @@
                 string listName = card.List.Name;
                 int commentCount = card.Comments.Count();
 
-                card.Refresh(true, ct: _cancellationSource.Token).Wait();
+                card.Refresh(ct: _cancellationSource.Token).Wait();
 
                 if (card.List.Id != listId)
                     UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
 
-                if (card.Comments.Count() != commentCount && 
+                // TODO Fix memory leaks for all actions.
+                if (card.Comments.Count() != commentCount &&
                     commentCount < card.Comments.Count())
                     for (int i = 0; i < card.Comments.Count() - commentCount; i++)
                         UpdateComments?.Invoke(this, new TextEventArgs(card.Id, card.Comments[i].Data.Text, card.Comments[i].Creator.Id == _me.Id));
