@@ -84,7 +84,7 @@
         {
             if (!_issues.ContainsKey(task.IssueId))
                 return false;
-            
+
             var hours = decimal.Round(task.Hours, 1);
             if (hours == 0)
                 return false;
@@ -112,9 +112,10 @@
                 issue.EstimatedHours = _options.EstimatedHoursABS;
 
             issue = Task.Run(() => _manager.Update(task.IssueId.ToString(), issue), _cancellationSource.Token).Result;
-            if (!_issues.ContainsKey(issue.Id))
-                _issues[issue.Id] = issue;
 
+            _issues[issue.Id] = issue;
+
+            // TODO Add equals property issue.
             return true;
         }
 

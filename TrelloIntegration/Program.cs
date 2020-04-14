@@ -27,9 +27,7 @@
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
         const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) - (.*$)";
-
-        const int IN_PROGRESS_STATUS = 22;
-
+        
         static void Main(string[] args)
         {
             var mapperStatus = new Dictionary<string, int>();
@@ -111,26 +109,7 @@
                         var hours = Convert.ToDecimal((DateTime.Now - cardId2Issue[args.CardId].UpdateDT).Value.TotalHours);
 
                         if (cardId2Issue[args.CardId].Status != args.CurrentStatus)
-                            redmine.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus],
-                                result =>
-                                {
-                                    if (!result)
-                                    {
-                                        // Return old status.
-                                        trello.Enqueue(
-                                            new ImportCardTask(
-                                                cardId2Issue[args.CardId].Project,
-                                                cardId2Issue[args.CardId].Subject,
-                                                cardId2Issue[args.CardId].Discription,
-                                                cardId2Issue[args.CardId].Status,
-                                                mapperStatus.Keys.ToArray()));
-                                        return;
-                                    }
-
-                                    // TODO Add script for redmine actions on change status.
-                                    if (mapperStatus[args.PrevStatus] == IN_PROGRESS_STATUS)
-                                        redmine.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId, hours));
-                                }));
+                            redmine.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus]));
                     };
 
                     gitlab.Error += (s, error) => Console.WriteLine(error);
