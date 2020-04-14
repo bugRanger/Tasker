@@ -4,12 +4,12 @@
     {
         public string Text { get; }
 
-        public bool IsMy { get; }
+        public string UserId { get; }
 
-        public TextEventArgs(string cardId, string text, bool isMy) : base(cardId)
+        public TextEventArgs(string cardId, string text, string userId) : base(cardId)
         {
             Text = text;
-            IsMy = isMy;
+            UserId = userId;
         }
     }
 }

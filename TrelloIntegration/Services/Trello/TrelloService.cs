@@ -1,4 +1,4 @@
-﻿namespace TrelloIntegration.Services
+﻿namespace TrelloIntegration.Services.Trello
 {
     using System;
     using System.Linq;
@@ -7,7 +7,6 @@
     using System.Collections.Generic;
 
     using TrelloIntegration.Common;
-    using TrelloIntegration.Services.Trello;
     using TrelloIntegration.Services.Trello.Tasks;
 
     using Manatee.Trello;
@@ -16,7 +15,7 @@
     {
         #region Fields
 
-        private IMe _me;
+        private IMe _user;
         private ITrelloOptions _options;
         private TrelloFactory _factory;
         private Dictionary<string, ICard> _cards;
@@ -25,6 +24,20 @@
 
         #endregion Fields
 
+        #region Properties
+
+        protected IMe User
+        {
+            get
+            {
+                return _user ?? _factory.Me(ct: _cancellationSource.Token).Result;
+            }
+        }
+
+        public string UserId => User.Id;
+
+        #endregion Properties
+
         #region Events
 
         public event EventHandler<BroadEventArgs> CreateBoard;
@@ -32,7 +45,7 @@
         public event EventHandler<TextEventArgs> UpdateComments;
 
         #endregion Events
-
+        
         #region Constructors
 
         public TrelloService(ITrelloOptions options)
@@ -65,12 +78,10 @@
             TrelloConfiguration.EnableDeepDownloads = false;
             TrelloConfiguration.EnableConsistencyProcessing = false;
 
-            Card.DownloadedFields =
+            Card.DownloadedFields = 
                 Card.Fields.List |
-                Card.Fields.Name;
-                //Card.Fields.Labels |
-                //Card.Fields.Attachments |
-                //Card.Fields.Comments;
+                Card.Fields.Actions |
+                Card.Fields.Comments;
 
             _queue.Start();
 
@@ -93,24 +104,23 @@
 
         public string Handle(ImportCardTask task)
         {
-            _me = _me ?? _factory.Me(ct: _cancellationSource.Token).Result;
-            _me.Boards.Refresh(ct: _cancellationSource.Token).Wait();
+            User.Boards.Refresh(true, ct: _cancellationSource.Token).Wait();
 
-            IBoard board = _me.Boards.FirstOrDefault(a => a.Name == task.Project);
+            IBoard board = User.Boards.FirstOrDefault(a => a.Name == task.Project);
             if (board == null)
             {
-                board = _me.Boards.Add(task.Project, ct: _cancellationSource.Token).Result;
+                board = User.Boards.Add(task.Project, ct: _cancellationSource.Token).Result;
                 CreateBoard?.Invoke(this, new BroadEventArgs(board.Id));
             }
 
-            board.Refresh(ct: _cancellationSource.Token).Wait();
+            board.Refresh(true, ct: _cancellationSource.Token).Wait();
 
-            board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
+            board.Lists.Refresh(true, ct: _cancellationSource.Token).Wait();
             IList list =
                 board.Lists.FirstOrDefault(a => a.Name == task.Status) ??
                 board.Lists.Add(task.Status, ct: _cancellationSource.Token).Result;
 
-            board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
+            board.Cards.Refresh(true, ct: _cancellationSource.Token).Wait();
             ICard card = board.Cards.FirstOrDefault(a => a.Name == task.Subject);
 
             if (card == null)
@@ -149,7 +159,7 @@
                 string listName = card.List.Name;
                 int commentCount = card.Comments.Count();
 
-                card.Refresh(ct: _cancellationSource.Token).Wait();
+                card.Refresh(true, ct: _cancellationSource.Token).Wait();
 
                 if (card.List.Id != listId)
                     UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
@@ -158,7 +168,7 @@
                 if (card.Comments.Count() != commentCount &&
                     commentCount < card.Comments.Count())
                     for (int i = 0; i < card.Comments.Count() - commentCount; i++)
-                        UpdateComments?.Invoke(this, new TextEventArgs(card.Id, card.Comments[i].Data.Text, card.Comments[i].Creator.Id == _me.Id));
+                        UpdateComments?.Invoke(this, new TextEventArgs(card.Id, card.Comments[i].Data.Text, card.Comments[i].Creator.Id));
             }
 
             if (_queue.HasEnabled())

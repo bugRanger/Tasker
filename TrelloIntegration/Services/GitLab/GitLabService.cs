@@ -1,4 +1,4 @@
-﻿namespace TrelloIntegration.Services
+﻿namespace TrelloIntegration.Services.GitLab
 {
     using System;
     using System.Linq;
@@ -55,7 +55,7 @@
             _client = _client ?? new GitLabClient(_options.Host, _options.Token);
             _queue.Start();
 
-            Enqueue(new SyncMergeRequestTask(_options.Sync));
+            //Enqueue(new SyncMergeRequestTask(_options.Sync));
         }
 
         public void Stop()

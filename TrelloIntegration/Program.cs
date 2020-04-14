@@ -5,13 +5,20 @@
     using System.Linq;
     using System.Text.Json;
     using System.Collections.Generic;
+    using System.Text.RegularExpressions;
+
+    using TrelloIntegration.Common;
 
     using TrelloIntegration.Services;
+    using TrelloIntegration.Services.Trello;
     using TrelloIntegration.Services.Trello.Tasks;
+
+    using TrelloIntegration.Services.GitLab;
     using TrelloIntegration.Services.GitLab.Tasks;
+
+    using TrelloIntegration.Services.Redmine;
     using TrelloIntegration.Services.Redmine.Tasks;
-    using TrelloIntegration.Common;
-    using System.Text.RegularExpressions;
+
 
     partial class Program
     {
@@ -81,7 +88,7 @@
                     trello.UpdateComments += (s, args) =>
                     {
                         if (!cardId2Issue.ContainsKey(args.CardId) ||
-                            !args.IsMy)
+                            args.UserId != trello.UserId)
                             return;
 
                         var matches = Regex.Matches(args.Text, TRELLO_CMD_UPDATE_TIME);

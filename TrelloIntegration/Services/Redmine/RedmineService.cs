@@ -1,4 +1,4 @@
-﻿namespace TrelloIntegration.Services
+﻿namespace TrelloIntegration.Services.Redmine
 {
     using System;
     using System.Linq;
