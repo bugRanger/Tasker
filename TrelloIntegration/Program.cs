@@ -64,29 +64,28 @@
                                     $"[{issue.Id}] {issue.Subject}",
                                     issue.Description,
                                     issue.Status.Name,
-                                cardId =>
-                                {
-                                    cardId2Issue[cardId] =
-                                        new IssueEntity()
-                                        {
-                                            CardId = cardId,
-                                            IssueId = issue.Id,
-                                            Project = issue.Project.Name,
-                                            Subject = $"[{issue.Id}] {issue.Subject}",
-                                            Discription = issue.Description,
-                                            Status = issue.Status.Name,
-                                            UpdateDT = issue.UpdatedOn ?? issue.CreatedOn,
-                                        };
-                                }));
+                                    mapperStatus.Keys.ToArray(),
+                                    cardId =>
+                                    {
+                                        if (string.IsNullOrWhiteSpace(cardId))
+                                            return;
+
+                                        cardId2Issue[cardId] =
+                                            new IssueEntity()
+                                            {
+                                                CardId = cardId,
+                                                IssueId = issue.Id,
+                                                Project = issue.Project.Name,
+                                                Subject = $"[{issue.Id}] {issue.Subject}",
+                                                Discription = issue.Description,
+                                                Status = issue.Status.Name,
+                                                UpdateDT = issue.UpdatedOn ?? issue.CreatedOn,
+                                            };
+                                    }));
                         }
                     };
 
                     trello.Error += (s, error) => Console.WriteLine(error);
-                    trello.CreateBoard += (s, args) =>
-                    {
-                        // TODO Add filter for status.
-                        trello.Enqueue(new UpdateListTask(args.BroadId, mapperStatus.Keys.ToArray()));
-                    };
                     trello.UpdateComments += (s, args) =>
                     {
                         if (!cardId2Issue.ContainsKey(args.CardId) ||
@@ -123,7 +122,8 @@
                                                 cardId2Issue[args.CardId].Project,
                                                 cardId2Issue[args.CardId].Subject,
                                                 cardId2Issue[args.CardId].Discription,
-                                                cardId2Issue[args.CardId].Status));
+                                                cardId2Issue[args.CardId].Status,
+                                                mapperStatus.Keys.ToArray()));
                                         return;
                                     }
 

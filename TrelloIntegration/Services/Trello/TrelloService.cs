@@ -30,7 +30,8 @@
         {
             get
             {
-                return _user ?? _factory.Me(ct: _cancellationSource.Token).Result;
+                _user = _user ?? _factory.Me(ct: _cancellationSource.Token).Result;
+                return _user;
             }
         }
 
@@ -40,7 +41,6 @@
 
         #region Events
 
-        public event EventHandler<BroadEventArgs> CreateBoard;
         public event EventHandler<StatusEventArgs> UpdateStatus;
         public event EventHandler<TextEventArgs> UpdateComments;
         public event EventHandler<string> Error;
@@ -80,8 +80,9 @@
             TrelloConfiguration.EnableDeepDownloads = false;
             TrelloConfiguration.EnableConsistencyProcessing = false;
 
-            Card.DownloadedFields = 
+            Card.DownloadedFields =
                 Card.Fields.Name |
+                Card.Fields.Position |
                 Card.Fields.Description |
                 Card.Fields.List |
                 Card.Fields.Actions |
@@ -114,7 +115,7 @@
             if (board == null)
             {
                 board = User.Boards.Add(task.Project, ct: _cancellationSource.Token).Result;
-                CreateBoard?.Invoke(this, new BroadEventArgs(board.Id));
+                Handle(new UpdateListTask(board.Id, task.Statuses));
             }
 
             board.Refresh(ct: _cancellationSource.Token).Wait();
@@ -135,9 +136,9 @@
             {
                 card.List = list;
             }
-            _cards[card.Id] = card;
-
             card.Description = task.Description;
+
+            _cards[card.Id] = card;
             return card.Id;
         }
 
@@ -145,10 +146,19 @@
         {
             IBoard board = _factory.Board(task.BoardId);
             board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
-            foreach (string list in task.Lists)
+
+            foreach (IList item in board.Lists)
             {
-                if (board.Lists.All(a => a.Name != list))
-                    board.Lists.Add(list, ct: _cancellationSource.Token);
+                if (!task.Lists.Contains(item.Name))
+                    item.IsArchived = true;
+            }
+
+            foreach (string list in task.Lists.Reverse())
+            {
+                if (board.Lists.All(a => a.Name == list))
+                    continue;
+
+                board.Lists.Add(list, ct: _cancellationSource.Token);
             }
 
             return true;

@@ -12,12 +12,15 @@
 
         public string Status { get; }
 
-        public ImportCardTask(string project, string subject, string description, string status, Action<string> callback = null) : base(callback)
+        public string[] Statuses { get; } 
+
+        public ImportCardTask(string project, string subject, string description, string status, string[] statuses, Action<string> callback = null) : base(callback)
         {
             Project = project;
             Subject = subject;
             Description = description;
             Status = status;
+            Statuses = statuses;
         }
 
         protected override string HandleImpl(TrelloService service)
