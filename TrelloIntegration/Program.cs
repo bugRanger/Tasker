@@ -27,7 +27,7 @@
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
-        const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) - (.*$)";
+        const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) (.*$)";
 
         static void Main(string[] args)
         {
@@ -97,7 +97,7 @@
                             args.UserId != trello.UserId)
                             return;
 
-                        var matches = Regex.Matches(args.Text, TRELLO_CMD_UPDATE_TIME);
+                        var matches = Regex.Matches(args.Text.ToLower(), TRELLO_CMD_UPDATE_TIME);
                         if (matches.Count > 0 &&
                             matches[0].Success &&
                             decimal.TryParse(matches[0].Groups[1].Value.Replace('.', ','), out decimal hours))
