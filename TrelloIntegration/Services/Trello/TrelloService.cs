@@ -1,6 +1,8 @@
 ﻿namespace TrelloIntegration.Services.Trello
 {
     using System;
+    using System.Net;
+    using System.Net.Http;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
@@ -79,6 +81,15 @@
 
             TrelloConfiguration.EnableDeepDownloads = false;
             TrelloConfiguration.EnableConsistencyProcessing = false;
+            TrelloConfiguration.HttpClientFactory = () =>
+            {
+                return 
+                    new HttpClient(
+                        new HttpClientHandler
+                        {
+                            DefaultProxyCredentials = CredentialCache.DefaultCredentials
+                        });
+            };
 
             Card.DownloadedFields =
                 Card.Fields.Name |
