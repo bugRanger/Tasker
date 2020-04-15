@@ -42,7 +42,7 @@
         #region Events
 
         public event EventHandler<StatusEventArgs> UpdateStatus;
-        public event EventHandler<TextEventArgs> UpdateComments;
+        public event EventHandler<CommentEventArgs> UpdateComments;
         public event EventHandler<string> Error;
 
         #endregion Events
@@ -142,6 +142,20 @@
             return card.Id;
         }
 
+        public bool Handle(EmojiCommentTask task) 
+        {
+            if (task.Emoji == null || !_cards.TryGetValue(task.CardId, out ICard card))
+                return false;
+
+            var comment = card.Comments.FirstOrDefault(f => f.Id == task.CommentId);
+            if (comment == null)
+                return false;
+            
+            comment.Reactions.Add(task.Emoji, _cancellationSource.Token).Wait();
+
+            return true;
+        }
+
         public bool Handle(UpdateListTask task)
         {
             IBoard board = _factory.Board(task.BoardId);
@@ -178,11 +192,15 @@
                 if (card.List.Id != listId)
                     UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
 
-                // TODO Fix memory leaks for all actions.
                 if (card.Comments.Count() != commentCount &&
                     commentCount < card.Comments.Count())
                     for (int i = 0; i < card.Comments.Count() - commentCount; i++)
-                        UpdateComments?.Invoke(this, new TextEventArgs(card.Id, card.Comments[i].Data.Text, card.Comments[i].Creator.Id));
+                        UpdateComments?.Invoke(this, 
+                            new CommentEventArgs(
+                                card.Id, 
+                                card.Comments[i].Id, 
+                                card.Comments[i].Creator.Id, 
+                                card.Comments[i].Data.Text));
             }
 
             if (_queue.HasEnabled())

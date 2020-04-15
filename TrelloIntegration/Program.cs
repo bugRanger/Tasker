@@ -19,6 +19,7 @@
     using TrelloIntegration.Services.Redmine;
     using TrelloIntegration.Services.Redmine.Tasks;
 
+    using Manatee.Trello;
 
     partial class Program
     {
@@ -98,7 +99,12 @@
                                 new UpdateWorkTimeTask(
                                     cardId2Issue[args.CardId].IssueId,
                                     hours,
-                                    matches[0].Groups[3].Value));
+                                    matches[0].Groups[3].Value,
+                                    result =>
+                                    {
+                                        trello.Enqueue(new EmojiCommentTask(args.CardId, args.CommentId,
+                                            result ? Emojis.WhiteCheckMark : Emojis.FaceWithSymbolsOnMouth));
+                                    }));
                     };
                     trello.UpdateStatus += (s, args) =>
                     {
