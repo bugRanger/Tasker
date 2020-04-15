@@ -13,5 +13,7 @@
         public float EstimatedHoursABS { get; set; }
 
         public int UserId { get; set; }
+
+        public int[] Statuses { get; set; }
     }
 }

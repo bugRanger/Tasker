@@ -28,7 +28,7 @@
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
         const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) - (.*$)";
-        
+
         static void Main(string[] args)
         {
             var mapperStatus = new Dictionary<string, int>();
@@ -47,9 +47,15 @@
                     redmine.Error += (s, error) => Console.WriteLine(error);
                     redmine.UpdateStatuses += (s, statuses) =>
                     {
-                        foreach (var status in statuses)
+                        if (redmineOptions.Statuses == null)
+                            return;
+
+                        var dict = statuses.ToDictionary(k => k.Id, v => v);
+
+                        foreach (int statusId in redmineOptions.Statuses)
                         {
-                            mapperStatus[status.Name] = status.Id;
+                            if (dict.TryGetValue(statusId, out var issueStatus))
+                                mapperStatus[issueStatus.Name] = issueStatus.Id;
                         }
                     };
                     redmine.UpdateIssues += (s, issues) =>
