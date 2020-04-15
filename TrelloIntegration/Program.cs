@@ -27,7 +27,7 @@
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
-        const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) (.*$)";
+        const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) - (.*$)";
 
         static void Main(string[] args)
         {
