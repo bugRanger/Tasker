@@ -1,7 +1,7 @@
 ﻿namespace TrelloIntegration.Services.Redmine.Tasks
 {
-    using Common;
     using System;
+    using TrelloIntegration.Common.Tasks;
 
     class UpdateIssueTask : TaskItem<RedmineService, bool>
     {

@@ -7,7 +7,7 @@
     using System.Threading;
     using System.Threading.Tasks;
 
-    using TrelloIntegration.Common;
+    using TrelloIntegration.Common.Tasks;
     using TrelloIntegration.Services.Redmine.Tasks;
 
     using RedmineApi.Core;
@@ -121,41 +121,57 @@
 
         public bool Handle(SyncStatusesTask task)
         {
-            List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
+            try
+            {
+                List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
+                UpdateStatuses?.Invoke(this, statuses.ToArray());
 
-            UpdateStatuses?.Invoke(this, statuses.ToArray());
-
-            return true;
+                return true;
+            }
+            finally
+            {
+                if (_queue.HasEnabled())
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(_options.Sync.Interval);
+                        Enqueue(new SyncStatusesTask());
+                    });
+            }
         }
 
         public bool Handle(SyncIssuesTask task)
         {
-            List<Issue> issues = Task.Run(() =>
-                _manager.ListAll<Issue>(
-                    new NameValueCollection()
+            try
+            {
+                List<Issue> issues = Task.Run(() =>
+                    _manager.ListAll<Issue>(
+                        new NameValueCollection()
+                        {
+                            { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.UserId.ToString() },
+                        }),
+                    _cancellationSource.Token).Result;
+
+                Issue[] updates = issues
+                    .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Status.Equals(w.Status))
+                    .ToArray();
+
+                foreach (Issue issue in updates)
+                    _issues[issue.Id] = issue;
+
+                if (updates.Any())
+                    UpdateIssues?.Invoke(this, updates);
+
+                return true;
+            }
+            finally
+            {
+                if (_queue.HasEnabled())
+                    _ = Task.Run(async () =>
                     {
-                        { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.UserId.ToString() },
-                    }),
-                _cancellationSource.Token).Result;
-
-            Issue[] updates = issues
-                .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Status.Equals(w.Status))
-                .ToArray();
-
-            foreach (Issue issue in updates)
-                _issues[issue.Id] = issue;
-
-            if (updates.Any())
-                UpdateIssues?.Invoke(this, updates);
-
-            if (_queue.HasEnabled())
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(_options.Sync.Interval);
-                    Enqueue(new SyncIssuesTask(_options.Sync));
-                });
-
-            return true;
+                        await Task.Delay(_options.Sync.Interval);
+                        Enqueue(new SyncIssuesTask(_options.Sync));
+                    });
+            }
         }
 
         #endregion Methods

@@ -3,8 +3,9 @@
     using System;
 
     using Manatee.Trello;
+    using TrelloIntegration.Common.Tasks;
 
-    class EmojiCommentTask : Common.TaskItem<TrelloService, bool>
+    class EmojiCommentTask : TaskItem<TrelloService, bool>
     {
         public string CardId { get; }
 

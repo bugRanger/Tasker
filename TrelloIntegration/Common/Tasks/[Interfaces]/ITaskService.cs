@@ -1,4 +1,4 @@
-﻿namespace TrelloIntegration.Common
+﻿namespace TrelloIntegration.Common.Tasks
 {
     using System;
 

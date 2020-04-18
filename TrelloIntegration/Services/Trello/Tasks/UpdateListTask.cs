@@ -1,8 +1,9 @@
 ﻿namespace TrelloIntegration.Services.Trello.Tasks
 {
     using System;
+    using TrelloIntegration.Common.Tasks;
 
-    class UpdateListTask : Common.TaskItem<TrelloService, bool>
+    class UpdateListTask : TaskItem<TrelloService, bool>
     {
         public string BoardId { get; }
 

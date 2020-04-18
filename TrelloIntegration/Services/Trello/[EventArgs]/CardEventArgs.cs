@@ -1,6 +1,8 @@
 ﻿namespace TrelloIntegration.Services.Trello
 {
-    abstract class CardEventArgs
+    using System;
+
+    abstract class CardEventArgs : EventArgs
     {
         public string CardId { get; }
 

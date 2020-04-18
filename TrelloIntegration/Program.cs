@@ -1,17 +1,17 @@
 ﻿namespace TrelloIntegration
 {
     using System;
-    using System.IO;
     using System.Linq;
-    using System.Text.Json;
     using System.Collections.Generic;
     using System.Text.RegularExpressions;
 
     using TrelloIntegration.Common;
+    using TrelloIntegration.Common.Command;
 
     using TrelloIntegration.Services;
     using TrelloIntegration.Services.Trello;
     using TrelloIntegration.Services.Trello.Tasks;
+    using TrelloIntegration.Services.Trello.Commands;
 
     using TrelloIntegration.Services.GitLab;
     using TrelloIntegration.Services.GitLab.Tasks;
@@ -27,25 +27,35 @@
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
-        const string TRELLO_CMD_UPDATE_TIME = "^uptime: (([0-9]+[\\.\\,])?[0-9]+) - (.*$)";
+        private static TrelloService trelloService;
+        private static GitLabService gitlabService;
+        private static RedmineService redmineService;
+
+        private static CommandController trelloCommand;
+
+        private static Dictionary<string, int> mapperStatus;
+        private static Dictionary<string, IssueEntity> cardId2Issue;
 
         static void Main(string[] args)
         {
-            var mapperStatus = new Dictionary<string, int>();
-            var cardId2Issue = new Dictionary<string, IssueEntity>();
+            mapperStatus = new Dictionary<string, int>();
+            cardId2Issue = new Dictionary<string, IssueEntity>();
 
             TrelloOptions trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             GitLabOptions gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
             RedmineOptions redmineOptions = JsonConfig.Read<RedmineOptions>(REDMINE_OPTIONS_FILE).Result;
-
+                        
             try
             {
-                using (var trello = new TrelloService(trelloOptions))
-                using (var gitlab = new GitLabService(gitlabOptions))
-                using (var redmine = new RedmineService(redmineOptions))
+                trelloCommand = new CommandController(() => $"^{trelloService.Mention} ([A-Za-z]+):");
+                trelloCommand.Register<UptimeCommand, CommentEventArgs>(UptimeCommand.UID, UptimeCommandAction);
+
+                using (trelloService = new TrelloService(trelloOptions))
+                using (gitlabService = new GitLabService(gitlabOptions))
+                using (redmineService = new RedmineService(redmineOptions))
                 {
-                    redmine.Error += (s, error) => Console.WriteLine(error);
-                    redmine.UpdateStatuses += (s, statuses) =>
+                    redmineService.Error += (s, error) => Console.WriteLine(error);
+                    redmineService.UpdateStatuses += (s, statuses) =>
                     {
                         if (redmineOptions.Statuses == null)
                             return;
@@ -58,12 +68,12 @@
                                 mapperStatus[issueStatus.Name] = issueStatus.Id;
                         }
                     };
-                    redmine.UpdateIssues += (s, issues) =>
+                    redmineService.UpdateIssues += (s, issues) =>
                     {
                         foreach (var issue in issues)
                         {
                             // TODO Add more detail for card issue.
-                            trello.Enqueue(
+                            trelloService.Enqueue(
                                 new ImportCardTask(
                                     issue.Project.Name,
                                     $"[{issue.Id}] {issue.Subject}",
@@ -90,45 +100,29 @@
                         }
                     };
 
-                    trello.Error += (s, error) => Console.WriteLine(error);
-                    trello.UpdateComments += (s, args) =>
+                    trelloService.Error += (s, error) => Console.WriteLine(error);
+                    trelloService.UpdateComments += (s, args) =>
                     {
-                        if (!cardId2Issue.ContainsKey(args.CardId) ||
-                            args.UserId != trello.UserId)
+                        if (!cardId2Issue.ContainsKey(args.CardId))
                             return;
 
-                        var matches = Regex.Matches(args.Text.ToLower(), TRELLO_CMD_UPDATE_TIME);
-                        if (matches.Count > 0 &&
-                            matches[0].Success &&
-                            decimal.TryParse(matches[0].Groups[1].Value.Replace('.', ','), out decimal hours))
-                            redmine.Enqueue(
-                                new UpdateWorkTimeTask(
-                                    cardId2Issue[args.CardId].IssueId,
-                                    hours,
-                                    matches[0].Groups[3].Value,
-                                    result =>
-                                    {
-                                        trello.Enqueue(new EmojiCommentTask(args.CardId, args.CommentId,
-                                            result ? Emojis.WhiteCheckMark : Emojis.FaceWithSymbolsOnMouth));
-                                    }));
+                        trelloCommand.TryAction(args.Text, args);
                     };
-                    trello.UpdateStatus += (s, args) =>
+                    trelloService.UpdateStatus += (s, args) =>
                     {
                         if (!cardId2Issue.ContainsKey(args.CardId) ||
                             !mapperStatus.ContainsKey(args.CurrentStatus))
                             return;
 
-                        var hours = Convert.ToDecimal((DateTime.Now - cardId2Issue[args.CardId].UpdateDT).Value.TotalHours);
-
                         if (cardId2Issue[args.CardId].Status != args.CurrentStatus)
-                            redmine.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus]));
+                            redmineService.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus]));
                     };
 
-                    gitlab.Error += (s, error) => Console.WriteLine(error);
+                    gitlabService.Error += (s, error) => Console.WriteLine(error);
 
-                    gitlab.Start();
-                    redmine.Start();
-                    trello.Start();
+                    gitlabService.Start();
+                    redmineService.Start();
+                    trelloService.Start();
 
                     while (true)
                     {
@@ -137,9 +131,9 @@
                             break;
                     }
 
-                    trello.Stop();
-                    gitlab.Stop();
-                    redmine.Stop();
+                    trelloService.Stop();
+                    gitlabService.Stop();
+                    redmineService.Stop();
                 }
             }
             finally
@@ -148,6 +142,16 @@
                 JsonConfig.Write(gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
                 JsonConfig.Write(redmineOptions, REDMINE_OPTIONS_FILE).Wait();
             }
+        }
+
+        static void UptimeCommandAction(UptimeCommand command, CommentEventArgs args)
+        {
+            redmineService.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId, command.Hours, command.Comment,
+                result =>
+                {
+                    trelloService.Enqueue(new EmojiCommentTask(args.CardId, args.CommentId,
+                        result ? Emojis.WhiteCheckMark : Emojis.FaceWithSymbolsOnMouth));
+                }));
         }
     }
 }

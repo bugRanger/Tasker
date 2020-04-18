@@ -1,8 +1,9 @@
 ﻿namespace TrelloIntegration.Services.Trello.Tasks
 {
     using System;
+    using TrelloIntegration.Common.Tasks;
 
-    class ImportCardTask : Common.TaskItem<TrelloService, string>
+    class ImportCardTask : TaskItem<TrelloService, string>
     {
         public string Project { get; }
 

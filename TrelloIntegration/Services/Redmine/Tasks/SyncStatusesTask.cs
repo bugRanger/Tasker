@@ -1,8 +1,9 @@
-﻿using System;
-
-namespace TrelloIntegration.Services.Redmine.Tasks
+﻿namespace TrelloIntegration.Services.Redmine.Tasks
 {
-    class SyncStatusesTask : Common.TaskItem<RedmineService, bool>
+    using System;
+    using TrelloIntegration.Common.Tasks;
+
+    class SyncStatusesTask : TaskItem<RedmineService, bool>
     {
         public SyncStatusesTask(Action<bool> callback = null) : base(callback)
         {

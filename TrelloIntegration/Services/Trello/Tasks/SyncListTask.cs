@@ -1,8 +1,9 @@
 ﻿namespace TrelloIntegration.Services.Trello.Tasks
 {
     using System;
+    using TrelloIntegration.Common.Tasks;
 
-    class SyncListTask : Common.TaskItem<TrelloService, bool>
+    class SyncListTask : TaskItem<TrelloService, bool>
     {
         public ITrelloSync SyncOptions { get; }
 

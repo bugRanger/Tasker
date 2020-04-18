@@ -7,7 +7,7 @@
     using System.Threading;
     using System.Threading.Tasks;
 
-    using TrelloIntegration.Common;
+    using TrelloIntegration.Common.Tasks;
     using TrelloIntegration.Services.GitLab.Tasks;
 
     using GitLabApiClient;
@@ -83,22 +83,27 @@
 
         public bool Handle(SyncMergeRequestTask task)
         {
-            var requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
+            try
             {
-                opt.AuthorId = task.SyncOptions.UserId;
-            }),
-            _cancellationSource.Token).Result;
-            
-            // TODO Handle event.
-
-            if (_queue.HasEnabled())
-                _ = Task.Run(async () =>
+                var requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
                 {
-                    await Task.Delay(_options.Sync.Interval);
-                    Enqueue(new SyncMergeRequestTask(_options.Sync));
-                });
+                    opt.AuthorId = task.SyncOptions.UserId;
+                }),
+                _cancellationSource.Token).Result;
 
-            return true;
+                // TODO Handle event.
+                return true;
+            }
+            finally
+            {
+                if (_queue.HasEnabled())
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(_options.Sync.Interval);
+                        Enqueue(new SyncMergeRequestTask(_options.Sync));
+                    });
+            }
+
         }
 
         #endregion Methods

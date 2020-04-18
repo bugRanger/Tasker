@@ -8,7 +8,7 @@
     using System.Threading.Tasks;
     using System.Collections.Generic;
 
-    using TrelloIntegration.Common;
+    using TrelloIntegration.Common.Tasks;
     using TrelloIntegration.Services.Trello.Tasks;
 
     using Manatee.Trello;
@@ -37,7 +37,7 @@
             }
         }
 
-        public string UserId => User.Id;
+        public string Mention => User.Mention;
 
         #endregion Properties
 
@@ -191,37 +191,42 @@
 
         public bool Handle(SyncListTask task)
         {
-            foreach (ICard card in _cards.Values)
+            try
             {
-                // Not use action refresh, it is memory leak.
-                string listId = card.List.Id;
-                string listName = card.List.Name;
-                int commentCount = card.Comments.Count();
-
-                card.Refresh(true, ct: _cancellationSource.Token).Wait();
-
-                if (card.List.Id != listId)
-                    UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
-
-                if (card.Comments.Count() != commentCount &&
-                    commentCount < card.Comments.Count())
-                    for (int i = 0; i < card.Comments.Count() - commentCount; i++)
-                        UpdateComments?.Invoke(this, 
-                            new CommentEventArgs(
-                                card.Id, 
-                                card.Comments[i].Id, 
-                                card.Comments[i].Creator.Id, 
-                                card.Comments[i].Data.Text));
-            }
-
-            if (_queue.HasEnabled())
-                _ = Task.Run(async () =>
+                foreach (ICard card in _cards.Values)
                 {
-                    await Task.Delay(_options.Sync.Interval);
-                    Enqueue(new SyncListTask(_options.Sync));
-                });
+                    // Not use action refresh, it is memory leak.
+                    string listId = card.List.Id;
+                    string listName = card.List.Name;
+                    int commentCount = card.Comments.Count();
 
-            return true;
+                    card.Refresh(ct: _cancellationSource.Token).Wait();
+
+                    if (card.List.Id != listId)
+                        UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
+
+                    if (card.Comments.Count() != commentCount &&
+                        commentCount < card.Comments.Count())
+                        for (int i = 0; i < card.Comments.Count() - commentCount; i++)
+                            UpdateComments?.Invoke(this,
+                                new CommentEventArgs(
+                                    card.Id,
+                                    card.Comments[i].Id,
+                                    card.Comments[i].Creator.Id,
+                                    card.Comments[i].Data.Text));
+                }
+
+                return true;
+            }
+            finally
+            {
+                if (_queue.HasEnabled())
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(_options.Sync.Interval);
+                        Enqueue(new SyncListTask(_options.Sync));
+                    });
+            }
         }
 
         #endregion Methods

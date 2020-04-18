@@ -1,8 +1,9 @@
 ﻿namespace TrelloIntegration.Services.GitLab.Tasks
 {
     using System;
+    using TrelloIntegration.Common.Tasks;
 
-    class SyncMergeRequestTask : Common.TaskItem<GitLabService, bool>
+    class SyncMergeRequestTask : TaskItem<GitLabService, bool>
     {
         public IGitLabSync SyncOptions { get; }
 

@@ -1,8 +1,9 @@
 ﻿namespace TrelloIntegration.Services.Redmine.Tasks
 {
     using System;
+    using TrelloIntegration.Common.Tasks;
 
-    class SyncIssuesTask : Common.TaskItem<RedmineService, bool>
+    class SyncIssuesTask : TaskItem<RedmineService, bool>
     {
         public IRedmineSync SyncOptions { get; }
 

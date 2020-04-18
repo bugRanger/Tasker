@@ -1,8 +1,9 @@
 ﻿namespace TrelloIntegration.Services.GitLab.Tasks
 {
     using System;
+    using TrelloIntegration.Common.Tasks;
 
-    class UpdateMergeRequestTask : Common.TaskItem<GitLabService, bool>
+    class UpdateMergeRequestTask : TaskItem<GitLabService, bool>
     {
         public UpdateMergeRequestTask(Action<bool> callback = null) : base(callback)
         {
