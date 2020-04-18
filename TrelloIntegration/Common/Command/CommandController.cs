@@ -19,6 +19,7 @@
         public CommandController(Func<string> getformat)
         {
             _getformat = getformat;
+
             _createMapper = new Dictionary<string, Func<CommandItem>>();
             _actionMapper = new Dictionary<Type, Action<CommandItem, EventArgs>>();
         }

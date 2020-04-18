@@ -4,23 +4,25 @@
 
     using TrelloIntegration.Common.Command;
 
-    class UptimeCommand : CommandItem
+    class MergeCommand : CommandItem
     {
         #region Fields
 
-        private static string EXPRESSION = "(([0-9]+[\\.\\,])?[0-9]+) (.*)$";
+        private static string EXPRESSION = "([A-Za-z0-9]+) ([A-Za-z]+) ([A-Za-z]+)$";
 
         #endregion Fields
         
         #region Properties
 
-        public decimal Hours { get; private set; }
-        
-        public string Comment { get; private set; }
+        public string Source { get; private set; }
+
+        public string Target { get; private set; }
+
+        public string Title { get; private set; }
 
         #endregion Properties
 
-        public UptimeCommand() 
+        public MergeCommand() 
             : base(EXPRESSION)
         {
         }
@@ -29,11 +31,9 @@
 
         internal override bool Reload(MatchCollection matches)
         {
-            if (!decimal.TryParse(matches[0].Groups[1].Value.Replace('.', ','), out decimal hours))
-                return false;
-
-            Hours = hours;
-            Comment = matches[0].Groups[3].Value;
+            Source = matches[0].Groups[1].Value;
+            Target = matches[0].Groups[2].Value;
+            Title = matches[0].Groups[3].Value;
 
             return true;
         }

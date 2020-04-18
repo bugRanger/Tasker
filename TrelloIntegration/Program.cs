@@ -3,7 +3,6 @@
     using System;
     using System.Linq;
     using System.Collections.Generic;
-    using System.Text.RegularExpressions;
 
     using TrelloIntegration.Common;
     using TrelloIntegration.Common.Command;
@@ -48,7 +47,8 @@
             try
             {
                 trelloCommand = new CommandController(() => $"^{trelloService.Mention} ([A-Za-z]+):");
-                trelloCommand.Register<UptimeCommand, CommentEventArgs>(UptimeCommand.UID, UptimeCommandAction);
+                trelloCommand.Register<MergeCommand, CommentEventArgs>("merge", MergeCommandAction);
+                trelloCommand.Register<UptimeCommand, CommentEventArgs>("update", UptimeCommandAction);
 
                 using (trelloService = new TrelloService(trelloOptions))
                 using (gitlabService = new GitLabService(gitlabOptions))
@@ -118,6 +118,9 @@
                             redmineService.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus]));
                     };
 
+                    gitlabService.UpdateRequests += (s, reuests) => 
+                    {
+                    };
                     gitlabService.Error += (s, error) => Console.WriteLine(error);
 
                     gitlabService.Start();
@@ -144,14 +147,34 @@
             }
         }
 
+        static void MergeCommandAction(MergeCommand command, CommentEventArgs args)
+        {
+            gitlabService.Enqueue(
+                new UpdateMergeRequestTask(
+                    0,
+                    command.Source,
+                    command.Target,
+                    command.Title,
+                    result => OnCallbackCommandTask(args.CardId, args.CommentId, result)));
+        }
+
         static void UptimeCommandAction(UptimeCommand command, CommentEventArgs args)
         {
-            redmineService.Enqueue(new UpdateWorkTimeTask(cardId2Issue[args.CardId].IssueId, command.Hours, command.Comment,
-                result =>
-                {
-                    trelloService.Enqueue(new EmojiCommentTask(args.CardId, args.CommentId,
-                        result ? Emojis.WhiteCheckMark : Emojis.FaceWithSymbolsOnMouth));
-                }));
+            redmineService.Enqueue(
+                new UpdateWorkTimeTask(
+                    cardId2Issue[args.CardId].IssueId, 
+                    command.Hours, 
+                    command.Comment, 
+                    result => OnCallbackCommandTask(args.CardId, args.CommentId, result)));
+        }
+
+        static void OnCallbackCommandTask(string cardId, string commendId, bool result)
+        {
+            trelloService.Enqueue(
+                new EmojiCommentTask(cardId, commendId, 
+                    result 
+                        ? Emojis.WhiteCheckMark 
+                        : Emojis.FaceWithSymbolsOnMouth));
         }
     }
 }

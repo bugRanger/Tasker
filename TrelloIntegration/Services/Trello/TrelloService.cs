@@ -153,6 +153,17 @@
             return card.Id;
         }
 
+        public bool Handle(AddCommentTask task)
+        {
+            if (string.IsNullOrWhiteSpace(task.Comment) || 
+                !_cards.TryGetValue(task.CardId, out ICard card))
+                return false;
+
+            card.Comments.Add(task.Comment, _cancellationSource.Token).Wait();
+
+            return true;
+        }
+
         public bool Handle(EmojiCommentTask task) 
         {
             if (task.Emoji == null || !_cards.TryGetValue(task.CardId, out ICard card))

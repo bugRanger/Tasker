@@ -11,6 +11,8 @@
     using TrelloIntegration.Services.GitLab.Tasks;
 
     using GitLabApiClient;
+    using GitLabApiClient.Models.MergeRequests.Responses;
+    using GitLabApiClient.Models.MergeRequests.Requests;
 
     class GitLabService : ITaskService, IDisposable
     {
@@ -18,6 +20,7 @@
 
         private GitLabClient _client;
         private IGitLabOptions _options;
+        private Dictionary<int, MergeRequest> _requests;
         private ITaskQueue<GitLabService> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -25,7 +28,7 @@
 
         #region Events
 
-        public event EventHandler<object> UpdateMergeRequest;
+        public event EventHandler<MergeRequest[]> UpdateRequests;
         public event EventHandler<string> Error;
 
         #endregion Events
@@ -34,6 +37,7 @@
 
         public GitLabService(IGitLabOptions options)
         {
+            _requests = new Dictionary<int, MergeRequest>();
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<GitLabService>(task => task.Handle(this));
@@ -57,7 +61,7 @@
             _client = _client ?? new GitLabClient(_options.Host, _options.Token);
             _queue.Start();
 
-            //Enqueue(new SyncMergeRequestTask(_options.Sync));
+            Enqueue(new SyncMergeRequestTask(_options.Sync));
         }
 
         public void Stop()
@@ -76,8 +80,10 @@
 
         public bool Handle(UpdateMergeRequestTask task)
         {
-            //Task.Run(() => _client.MergeRequests.
-            // TODO Update info.
+            MergeRequest request = Task.Run(() => 
+                _client.MergeRequests.CreateAsync(task.ProjectId, new CreateMergeRequest(task.SourceBranch, task.TargetBranch, task.Title)), 
+                _cancellationSource.Token).Result;
+
             return true;
         }
 
@@ -85,11 +91,21 @@
         {
             try
             {
-                var requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
+                IList<MergeRequest> requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
                 {
                     opt.AuthorId = task.SyncOptions.UserId;
                 }),
                 _cancellationSource.Token).Result;
+
+                MergeRequest[] updates = requests
+                    .Where(w => !_requests.ContainsKey(w.Id) || !_requests[w.Id].Status.Equals(w.Status))
+                    .ToArray();
+
+                foreach (MergeRequest request in updates)
+                    _requests[request.Id] = request;
+
+                if (updates.Any())
+                    UpdateRequests?.Invoke(this, updates);
 
                 // TODO Handle event.
                 return true;
@@ -103,7 +119,6 @@
                         Enqueue(new SyncMergeRequestTask(_options.Sync));
                     });
             }
-
         }
 
         #endregion Methods
