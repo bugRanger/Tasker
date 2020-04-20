@@ -83,7 +83,7 @@
             TrelloConfiguration.EnableConsistencyProcessing = false;
             TrelloConfiguration.HttpClientFactory = () =>
             {
-                return 
+                return
                     new HttpClient(
                         new HttpClientHandler
                         {
@@ -101,7 +101,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncListTask(_options.Sync));
+            Enqueue(new SyncCardsTask(_options.Sync));
         }
 
         public void Stop()
@@ -118,16 +118,32 @@
             _queue.Enqueue(task);
         }
 
-        public string Handle(ImportCardTask task)
+        public string Handle(UpdateBoardTask task)
         {
-            User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
-
-            IBoard board = User.Boards.FirstOrDefault(a => a.Name == task.Project);
+            IBoard board = string.IsNullOrWhiteSpace(task.Id) ? null : _factory.Board(task.Id);
             if (board == null)
             {
-                board = User.Boards.Add(task.Project, ct: _cancellationSource.Token).Result;
-                Handle(new UpdateListTask(board.Id, task.Statuses));
+                User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
+                board = User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
             }
+            else 
+            {
+                if (board.Name != task.Name)
+                    board.Name = task.Name;
+
+                if (board.Description != task.Description)
+                    board.Description = task.Description;
+            }
+
+            return board.Id;
+        }
+
+        // TODO Update for array cards.
+        public string Handle(UpdateCardTask task)
+        {
+            IBoard board = string.IsNullOrWhiteSpace(task.BoardId) ? null : _factory.Board(task.BoardId);
+            if (board == null)
+                return null;
 
             board.Refresh(ct: _cancellationSource.Token).Wait();
 
@@ -155,7 +171,7 @@
 
         public bool Handle(AddCommentTask task)
         {
-            if (string.IsNullOrWhiteSpace(task.Comment) || 
+            if (string.IsNullOrWhiteSpace(task.Comment) ||
                 !_cards.TryGetValue(task.CardId, out ICard card))
                 return false;
 
@@ -164,7 +180,7 @@
             return true;
         }
 
-        public bool Handle(EmojiCommentTask task) 
+        public bool Handle(EmojiCommentTask task)
         {
             if (task.Emoji == null || !_cards.TryGetValue(task.CardId, out ICard card))
                 return false;
@@ -172,7 +188,7 @@
             var comment = card.Comments.FirstOrDefault(f => f.Id == task.CommentId);
             if (comment == null)
                 return false;
-            
+
             comment.Reactions.Add(task.Emoji, _cancellationSource.Token).Wait();
 
             return true;
@@ -200,7 +216,7 @@
             return true;
         }
 
-        public bool Handle(SyncListTask task)
+        public bool Handle(SyncCardsTask task)
         {
             try
             {
@@ -235,7 +251,7 @@
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(_options.Sync.Interval);
-                        Enqueue(new SyncListTask(_options.Sync));
+                        Enqueue(new SyncCardsTask(_options.Sync));
                     });
             }
         }

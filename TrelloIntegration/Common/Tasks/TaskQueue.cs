@@ -143,7 +143,6 @@
                 var sleep = _wait - (endTime - startTime);
                 if (sleep > 0)
                     _syncTask.WaitOne((int)sleep);
-
             }
         }
 

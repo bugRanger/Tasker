@@ -26,36 +26,42 @@
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
-        private static TrelloService trelloService;
-        private static GitLabService gitlabService;
-        private static RedmineService redmineService;
+        private static TrelloService _trelloService;
+        private static GitLabService _gitlabService;
+        private static RedmineService _redmineService;
 
-        private static CommandController trelloCommand;
+        private static CommandController _trelloCommand;
 
-        private static Dictionary<string, int> mapperStatus;
-        private static Dictionary<string, IssueEntity> cardId2Issue;
+        /// <summary>
+        /// Trello list convert to status issue redmine.
+        /// </summary>
+        private static Dictionary<string, int> _statusesMapper;
+        /// <summary>
+        /// Trello card id convert to issue Redmine.
+        /// </summary>
+        private static Dictionary<string, IssueEntity> _issueMapper;
 
         static void Main(string[] args)
         {
-            mapperStatus = new Dictionary<string, int>();
-            cardId2Issue = new Dictionary<string, IssueEntity>();
+            _issueMapper = new Dictionary<string, IssueEntity>();
+            _statusesMapper = new Dictionary<string, int>();
 
             TrelloOptions trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             GitLabOptions gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
             RedmineOptions redmineOptions = JsonConfig.Read<RedmineOptions>(REDMINE_OPTIONS_FILE).Result;
-                        
+
             try
             {
-                trelloCommand = new CommandController(() => $"^{trelloService.Mention} ([A-Za-z]+):");
-                trelloCommand.Register<MergeCommand, CommentEventArgs>("merge", MergeCommandAction);
-                trelloCommand.Register<UptimeCommand, CommentEventArgs>("update", UptimeCommandAction);
+                _trelloCommand = new CommandController(() => $"^{_trelloService.Mention} ([A-Za-z]+):");
+                _trelloCommand.Register<MergeCommand, CommentEventArgs>("merge", MergeCommandAction);
+                _trelloCommand.Register<UptimeCommand, CommentEventArgs>("update", UptimeCommandAction);
 
-                using (trelloService = new TrelloService(trelloOptions))
-                using (gitlabService = new GitLabService(gitlabOptions))
-                using (redmineService = new RedmineService(redmineOptions))
+                using (_trelloService = new TrelloService(trelloOptions))
+                using (_gitlabService = new GitLabService(gitlabOptions))
+                using (_redmineService = new RedmineService(redmineOptions))
                 {
-                    redmineService.Error += (s, error) => Console.WriteLine(error);
-                    redmineService.UpdateStatuses += (s, statuses) =>
+                    _redmineService.Error += (s, error) => Console.WriteLine(error);
+                    _redmineService.UpdateStatuses += (s, statuses) =>
                     {
                         if (redmineOptions.Statuses == null)
                             return;
@@ -65,67 +71,100 @@
                         foreach (int statusId in redmineOptions.Statuses)
                         {
                             if (dict.TryGetValue(statusId, out var issueStatus))
-                                mapperStatus[issueStatus.Name] = issueStatus.Id;
+                                _statusesMapper[issueStatus.Name] = issueStatus.Id;
                         }
                     };
-                    redmineService.UpdateIssues += (s, issues) =>
+                    _redmineService.UpdateIssues += (s, issues) =>
                     {
-                        foreach (var issue in issues)
+                        // Restore board.
+                        if (string.IsNullOrWhiteSpace(trelloOptions.BoardId))
                         {
-                            // TODO Add more detail for card issue.
-                            trelloService.Enqueue(
-                                new ImportCardTask(
-                                    issue.Project.Name,
-                                    $"[{issue.Id}] {issue.Subject}",
-                                    issue.Description,
-                                    issue.Status.Name,
-                                    mapperStatus.Keys.ToArray(),
-                                    cardId =>
+                            _trelloService.Enqueue(
+                                new UpdateBoardTask(
+                                    trelloOptions.BoardName,
+                                    callback: boardId =>
                                     {
-                                        if (string.IsNullOrWhiteSpace(cardId))
+                                        // TODO Repeat!
+                                        if (string.IsNullOrWhiteSpace(boardId))
                                             return;
 
-                                        cardId2Issue[cardId] =
-                                            new IssueEntity()
+                                        trelloOptions.BoardId = boardId;
+                                        try
+                                        {
+                                            // Refresh lists.
+                                            _trelloService.Enqueue(
+                                                new UpdateListTask(
+                                                    trelloOptions.BoardId, 
+                                                    _statusesMapper.Keys.ToArray()));
+
+                                            // Update cards.
+                                            foreach (var issue in issues)
                                             {
-                                                CardId = cardId,
-                                                IssueId = issue.Id,
-                                                Project = issue.Project.Name,
-                                                Subject = $"[{issue.Id}] {issue.Subject}",
-                                                Discription = issue.Description,
-                                                Status = issue.Status.Name,
-                                                UpdateDT = issue.UpdatedOn ?? issue.CreatedOn,
-                                            };
+                                                // TODO Add more detail for card issue.
+                                                _trelloService.Enqueue(
+                                                    new UpdateCardTask(
+                                                        trelloOptions.BoardId,
+                                                        $"[{issue.Id}] {issue.Subject}",
+                                                        issue.Description,
+                                                        issue.Status.Name,
+                                                        _statusesMapper.Keys.ToArray(),
+                                                        cardId =>
+                                                        {
+                                                            if (string.IsNullOrWhiteSpace(cardId))
+                                                                return;
+
+                                                            _issueMapper[cardId] =
+                                                                new IssueEntity()
+                                                                {
+                                                                    CardId = cardId,
+                                                                    IssueId = issue.Id,
+                                                                    Project = issue.Project.Name,
+                                                                    Subject = $"[{issue.Id}] {issue.Subject}",
+                                                                    Discription = issue.Description,
+                                                                    Status = issue.Status.Name,
+                                                                    UpdateDT = issue.UpdatedOn ?? issue.CreatedOn,
+                                                                };
+                                                        }));
+                                            }
+                                        }
+                                        finally
+                                        {
+                                            JsonConfig.Write(trelloOptions, TRELLO_OPTIONS_FILE).Wait();
+                                        }
                                     }));
                         }
                     };
 
-                    trelloService.Error += (s, error) => Console.WriteLine(error);
-                    trelloService.UpdateComments += (s, args) =>
+                    _trelloService.Error += (s, error) => Console.WriteLine(error);
+                    _trelloService.UpdateComments += (s, args) =>
                     {
-                        if (!cardId2Issue.ContainsKey(args.CardId))
+                        if (!_issueMapper.ContainsKey(args.CardId))
                             return;
 
-                        trelloCommand.TryAction(args.Text, args);
+                        _trelloCommand.TryAction(args.Text, args);
                     };
-                    trelloService.UpdateStatus += (s, args) =>
+                    _trelloService.UpdateStatus += (s, args) =>
                     {
-                        if (!cardId2Issue.ContainsKey(args.CardId) ||
-                            !mapperStatus.ContainsKey(args.CurrentStatus))
+                        if (!_issueMapper.ContainsKey(args.CardId) ||
+                            !_statusesMapper.ContainsKey(args.CurrentStatus))
                             return;
 
-                        if (cardId2Issue[args.CardId].Status != args.CurrentStatus)
-                            redmineService.Enqueue(new UpdateIssueTask(cardId2Issue[args.CardId].IssueId, mapperStatus[args.CurrentStatus]));
+                        if (_issueMapper[args.CardId].Status != args.CurrentStatus)
+                            _redmineService.Enqueue(new UpdateIssueTask(_issueMapper[args.CardId].IssueId, _statusesMapper[args.CurrentStatus]));
                     };
 
-                    gitlabService.UpdateRequests += (s, reuests) => 
+                    _gitlabService.Error += (s, error) => Console.WriteLine(error);
+                    _gitlabService.UpdateRequests += (s, requests) =>
                     {
+                        foreach (var request in requests)
+                        {
+                        }
+                        // TODO Impl.
                     };
-                    gitlabService.Error += (s, error) => Console.WriteLine(error);
 
-                    gitlabService.Start();
-                    redmineService.Start();
-                    trelloService.Start();
+                    _gitlabService.Start();
+                    _redmineService.Start();
+                    _trelloService.Start();
 
                     while (true)
                     {
@@ -134,9 +173,9 @@
                             break;
                     }
 
-                    trelloService.Stop();
-                    gitlabService.Stop();
-                    redmineService.Stop();
+                    _trelloService.Stop();
+                    _gitlabService.Stop();
+                    _redmineService.Stop();
                 }
             }
             finally
@@ -149,7 +188,8 @@
 
         static void MergeCommandAction(MergeCommand command, CommentEventArgs args)
         {
-            gitlabService.Enqueue(
+            // TODO Get project id for GitLab MR.
+            _gitlabService.Enqueue(
                 new UpdateMergeRequestTask(
                     0,
                     command.Source,
@@ -160,20 +200,23 @@
 
         static void UptimeCommandAction(UptimeCommand command, CommentEventArgs args)
         {
-            redmineService.Enqueue(
+            if (!_issueMapper.TryGetValue(args.CardId, out var issue))
+                return;
+
+            _redmineService.Enqueue(
                 new UpdateWorkTimeTask(
-                    cardId2Issue[args.CardId].IssueId, 
-                    command.Hours, 
-                    command.Comment, 
+                    issue.IssueId,
+                    command.Hours,
+                    command.Comment,
                     result => OnCallbackCommandTask(args.CardId, args.CommentId, result)));
         }
 
         static void OnCallbackCommandTask(string cardId, string commendId, bool result)
         {
-            trelloService.Enqueue(
-                new EmojiCommentTask(cardId, commendId, 
-                    result 
-                        ? Emojis.WhiteCheckMark 
+            _trelloService.Enqueue(
+                new EmojiCommentTask(cardId, commendId,
+                    result
+                        ? Emojis.WhiteCheckMark
                         : Emojis.FaceWithSymbolsOnMouth));
         }
     }

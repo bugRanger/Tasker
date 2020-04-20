@@ -3,9 +3,9 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class ImportCardTask : TaskItem<TrelloService, string>
+    class UpdateCardTask : TaskItem<TrelloService, string>
     {
-        public string Project { get; }
+        public string BoardId { get; }
 
         public string Subject { get; }
 
@@ -15,9 +15,9 @@
 
         public string[] Statuses { get; } 
 
-        public ImportCardTask(string project, string subject, string description, string status, string[] statuses, Action<string> callback = null) : base(callback)
+        public UpdateCardTask(string boardId, string subject, string description, string status, string[] statuses, Action<string> callback = null) : base(callback)
         {
-            Project = project;
+            BoardId = boardId;
             Subject = subject;
             Description = description;
             Status = status;

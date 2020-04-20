@@ -20,6 +20,7 @@
         private IRedmineOptions _options;
         private RedmineManager _manager;
         private Dictionary<int, Issue> _issues;
+        private Dictionary<int, IssueStatus> _statuses;
         private ITaskQueue<RedmineService> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -38,6 +39,7 @@
         public RedmineService(IRedmineOptions options)
         {
             _issues = new Dictionary<int, Issue>();
+            _statuses = new Dictionary<int, IssueStatus>();
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<RedmineService>(task => task.Handle(this));
@@ -124,7 +126,16 @@
             try
             {
                 List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
-                UpdateStatuses?.Invoke(this, statuses.ToArray());
+
+                IssueStatus[] updates = statuses
+                    .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
+                    .ToArray();
+
+                foreach (IssueStatus status in updates)
+                    _statuses[status.Id] = status;
+
+                if (updates.Any())
+                    UpdateStatuses?.Invoke(this, updates.ToArray());
 
                 return true;
             }
