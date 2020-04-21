@@ -2,7 +2,6 @@
 {
     using System;
     using System.Linq;
-    using System.Collections.Generic;
 
     using Manatee.Trello;
     using RedmineApi.Core.Types;
@@ -39,23 +38,19 @@
         private static RedmineService _redmineService;
 
         /// <summary>
-        /// Trello list convert to status issue redmine.
-        /// </summary>
-        private static Dictionary<string, int> _list2StatusMapper;
-        private static Dictionary<int, string> _status2ListMapper;
-        /// <summary>
         /// Trello card id convert to issue Redmine.
         /// </summary>
-        private static Dictionary<string, int> _card2IssueMapper;
-        private static Dictionary<int, string> _issue2CardMapper;
+        private static Mapper<string, int> _card2IssueMapper;
+
+        /// <summary>
+        /// Trello list convert to status issue redmine.
+        /// </summary>
+        private static Mapper<string, int> _list2StatusMapper;
 
         static void Main(string[] args)
         {
-            _card2IssueMapper = new Dictionary<string, int>();
-            _issue2CardMapper = new Dictionary<int, string>();
-
-            _list2StatusMapper = new Dictionary<string, int>();
-            _status2ListMapper = new Dictionary<int, string>();
+            _card2IssueMapper = new Mapper<string, int>();
+            _list2StatusMapper = new Mapper<string, int>();
 
             _trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             _gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
@@ -194,15 +189,14 @@
                 _trelloService.Enqueue(new UpdateCardTask(
                     subject: $"[{issue.Id}] {issue.Subject}",
                     description: issue.Description,
-                    getCardId: () => _issue2CardMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null,
-                    getListId: () => _status2ListMapper.TryGetValue(issue.Status.Id, out string listId) ? listId : null,
+                    getCardId: () => _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null,
+                    getListId: () => _list2StatusMapper.TryGetValue(issue.Status.Id, out string listId) ? listId : null,
                     callback: cardId =>
                     {
                         if (string.IsNullOrWhiteSpace(cardId))
                             return;
 
-                        _issue2CardMapper[issue.Id] = cardId;
-                        _card2IssueMapper[cardId] = issue.Id;
+                        _card2IssueMapper.Add(cardId, issue.Id);
                     }));
             }
         }
@@ -219,7 +213,7 @@
                 if (!dict.TryGetValue(statusId, out var issueStatus))
                     continue;
 
-                string listId = _status2ListMapper.TryGetValue(statusId, out string list) ? list : null;
+                string listId = _list2StatusMapper.TryGetValue(statusId, out string list) ? list : null;
                 //var position;
                 _trelloService.Enqueue(new UpdateListTask(
                     boardId :_trelloOptions.BoardId,
@@ -230,8 +224,7 @@
                         if (string.IsNullOrWhiteSpace(listId))
                             return;
 
-                        _status2ListMapper[statusId] = listId;
-                        _list2StatusMapper[listId] = statusId;
+                        _list2StatusMapper.Add(listId, statusId);
                     }));
             }
         }
