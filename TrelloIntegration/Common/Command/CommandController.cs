@@ -36,23 +36,29 @@
             return this;
         }
 
-        public bool TryAction(string command, EventArgs args)
+        public bool TryParse(string text, out CommandItem command)
         {
-            var match = Regex.Match(command, _getformat?.Invoke() ?? string.Empty);
+            command = null;
+
+            var match = Regex.Match(text, _getformat?.Invoke() ?? string.Empty);
             if (!match.Success || !_createMapper.TryGetValue(match.Groups[1].Value, out var createCommand))
                 return false;
 
-            var commandItem = createCommand();
+            command = createCommand();
 
-            var matches = Regex.Matches(command, commandItem.Expression);
-            if (matches.Count == 0 || !commandItem.Reload(matches))
+            var matches = Regex.Matches(text, command.Expression);
+            if (matches.Count == 0 || !command.Reload(matches))
                 return false;
 
-            if (!_actionMapper.TryGetValue(commandItem.GetType(), out var actionCommand))
+            return true;
+        }
+
+        public bool TryAction(CommandItem command, EventArgs args)
+        {
+            if (command == null || !_actionMapper.TryGetValue(command.GetType(), out var actionCommand))
                 return false;
 
-            actionCommand(commandItem, args);
-
+            actionCommand(command, args);
             return true;
         }
     }

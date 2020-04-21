@@ -20,7 +20,9 @@
         private IMe _user;
         private ITrelloOptions _options;
         private TrelloFactory _factory;
+        private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
+        private Dictionary<string, IList> _lists;
         private ITaskQueue<TrelloService> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -37,13 +39,13 @@
             }
         }
 
-        public string Mention => User.Mention;
+        public string Mention => User?.Mention ?? null;
 
         #endregion Properties
 
         #region Events
 
-        public event EventHandler<StatusEventArgs> UpdateStatus;
+        public event EventHandler<ListEventArgs> UpdateStatus;
         public event EventHandler<CommentEventArgs> UpdateComments;
         public event EventHandler<string> Error;
 
@@ -53,7 +55,10 @@
 
         public TrelloService(ITrelloOptions options)
         {
+            _boards = new Dictionary<string, IBoard>();
             _cards = new Dictionary<string, ICard>();
+            _lists = new Dictionary<string, IList>();
+
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<TrelloService>(task => task.Handle(this));
@@ -120,50 +125,75 @@
 
         public string Handle(UpdateBoardTask task)
         {
-            IBoard board = string.IsNullOrWhiteSpace(task.Id) ? null : _factory.Board(task.Id);
-            if (board == null)
+            if (string.IsNullOrWhiteSpace(task.Id) || 
+                !_boards.TryGetValue(task.Id, out IBoard board))
             {
                 User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
-                board = User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
-            }
-            else 
-            {
-                if (board.Name != task.Name)
-                    board.Name = task.Name;
+                board = User.Boards.FirstOrDefault(f => f.Id == task.Id);
+                if (board == null)
+                {
+                    board = User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
 
-                if (board.Description != task.Description)
-                    board.Description = task.Description;
+                    board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
+                    foreach (IList item in board.Lists)
+                        item.IsArchived = true;
+                }
             }
 
+            if (board.Name != task.Name)
+                board.Name = task.Name;
+
+            if (board.Description != task.Description)
+                board.Description = task.Description;
+
+            _boards[board.Id] = board;
             return board.Id;
         }
 
-        // TODO Update for array cards.
-        public string Handle(UpdateCardTask task)
+        public string Handle(UpdateListTask task)
         {
-            IBoard board = string.IsNullOrWhiteSpace(task.BoardId) ? null : _factory.Board(task.BoardId);
-            if (board == null)
+            if (string.IsNullOrWhiteSpace(task.BoardId) || 
+                !_boards.TryGetValue(task.BoardId, out IBoard board))
                 return null;
 
-            board.Refresh(ct: _cancellationSource.Token).Wait();
-
-            board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
-            IList list =
-                board.Lists.FirstOrDefault(a => a.Name == task.Status) ??
-                board.Lists.Add(task.Status, ct: _cancellationSource.Token).Result;
-
-            board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
-            ICard card = board.Cards.FirstOrDefault(a => a.Name == task.Subject);
-
-            if (card == null)
+            if (string.IsNullOrWhiteSpace(task.ListId) || 
+                !_lists.TryGetValue(task.ListId, out IList list))
             {
-                card = list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
+                list = board.Lists.FirstOrDefault(f => f.Id == task.ListId);
+                if (list == null)
+                {
+                    board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
+                    list = board.Lists.Add(task.Name, ct: _cancellationSource.Token).Result;
+                }
             }
-            else if (card.List.Id != list.Id)
+
+            _lists[list.Id] = list;
+            return list.Id;
+        }
+
+        public string Handle(UpdateCardTask task)
+        {
+            if (string.IsNullOrWhiteSpace(task.ListId) || 
+                !_lists.TryGetValue(task.ListId, out IList list))
+                return null;
+
+            if (string.IsNullOrWhiteSpace(task.CardId) || 
+                !_cards.TryGetValue(task.CardId, out ICard card))
             {
-                card.List = list;
+                User.Cards.Refresh(ct: _cancellationSource.Token).Wait();
+                card = User.Cards.FirstOrDefault(f => f.Id == task.CardId);
+                if (card == null)
+                {
+                    list.Refresh(ct: _cancellationSource.Token).Wait();
+                    card = list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
+                }
             }
-            card.Description = task.Description;
+
+            if (card.List.Id != task.ListId)
+                card.List = _lists[task.ListId];
+
+            if (card.Description != task.Description)
+                card.Description = task.Description;
 
             _cards[card.Id] = card;
             return card.Id;
@@ -193,29 +223,7 @@
 
             return true;
         }
-
-        public bool Handle(UpdateListTask task)
-        {
-            IBoard board = _factory.Board(task.BoardId);
-            board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
-
-            foreach (IList item in board.Lists)
-            {
-                if (!task.Lists.Contains(item.Name))
-                    item.IsArchived = true;
-            }
-
-            foreach (string list in task.Lists.Reverse())
-            {
-                if (board.Lists.All(a => a.Name == list))
-                    continue;
-
-                board.Lists.Add(list, ct: _cancellationSource.Token);
-            }
-
-            return true;
-        }
-
+ 
         public bool Handle(SyncCardsTask task)
         {
             try
@@ -224,13 +232,15 @@
                 {
                     // Not use action refresh, it is memory leak.
                     string listId = card.List.Id;
-                    string listName = card.List.Name;
                     int commentCount = card.Comments.Count();
 
                     card.Refresh(ct: _cancellationSource.Token).Wait();
 
                     if (card.List.Id != listId)
-                        UpdateStatus?.Invoke(this, new StatusEventArgs(card.Id, listName, card.List.Name));
+                        UpdateStatus?.Invoke(this, new ListEventArgs(
+                            cardId: card.Id, 
+                            prevId: listId, 
+                            currId: card.List.Id));
 
                     if (card.Comments.Count() != commentCount &&
                         commentCount < card.Comments.Count())

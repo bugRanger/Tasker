@@ -40,6 +40,7 @@
         {
             _issues = new Dictionary<int, Issue>();
             _statuses = new Dictionary<int, IssueStatus>();
+
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<RedmineService>(task => task.Handle(this));

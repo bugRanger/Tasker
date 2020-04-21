@@ -3,19 +3,22 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateListTask : TaskItem<TrelloService, bool>
+    class UpdateListTask : TaskItem<TrelloService, string>
     {
         public string BoardId { get; }
 
-        public string[] Lists { get; }
+        public string ListId { get; }
 
-        public UpdateListTask(string boardId, string[] lists, Action<bool> callback = null) : base(callback)
+        public string Name { get; }
+
+        public UpdateListTask(string boardId, string name, string listId = null, Action<string> callback = null) : base(callback)
         {
             BoardId = boardId;
-            Lists = lists;
+            ListId = listId;
+            Name = name;
         }
 
-        protected override bool HandleImpl(TrelloService service) 
+        protected override string HandleImpl(TrelloService service) 
         {
             return service.Handle(this);
         }

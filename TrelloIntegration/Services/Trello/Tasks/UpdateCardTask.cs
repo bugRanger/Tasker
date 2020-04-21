@@ -5,23 +5,33 @@
 
     class UpdateCardTask : TaskItem<TrelloService, string>
     {
-        public string BoardId { get; }
+        #region Fields
+
+        // Lazy.
+        private Func<string> _getCardId;
+        private Func<string> _getListId;
+
+        #endregion Fields
+
+        #region Properties
+
+        public string CardId => _getCardId?.Invoke() ?? null;
+
+        public string ListId => _getListId?.Invoke() ?? null;
 
         public string Subject { get; }
 
         public string Description { get; }
 
-        public string Status { get; }
+        #endregion Properties
 
-        public string[] Statuses { get; } 
-
-        public UpdateCardTask(string boardId, string subject, string description, string status, string[] statuses, Action<string> callback = null) : base(callback)
+        public UpdateCardTask(Func<string> getCardId, Func<string> getListId, string subject, string description, Action<string> callback = null) : base(callback)
         {
-            BoardId = boardId;
+            _getCardId = getCardId;
+            _getListId = getListId;
+
             Subject = subject;
             Description = description;
-            Status = status;
-            Statuses = statuses;
         }
 
         protected override string HandleImpl(TrelloService service)
