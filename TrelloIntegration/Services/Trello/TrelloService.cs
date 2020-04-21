@@ -159,12 +159,10 @@
             if (string.IsNullOrWhiteSpace(task.ListId) || 
                 !_lists.TryGetValue(task.ListId, out IList list))
             {
-                list = board.Lists.FirstOrDefault(f => f.Id == task.ListId);
-                if (list == null)
-                {
-                    board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
-                    list = board.Lists.Add(task.Name, ct: _cancellationSource.Token).Result;
-                }
+                board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
+                list = 
+                    board.Lists.FirstOrDefault(f => f.Id == task.ListId) ??
+                    board.Lists.Add(task.Name, ct: _cancellationSource.Token).Result;
             }
 
             _lists[list.Id] = list;
@@ -180,13 +178,10 @@
             if (string.IsNullOrWhiteSpace(task.CardId) || 
                 !_cards.TryGetValue(task.CardId, out ICard card))
             {
-                User.Cards.Refresh(ct: _cancellationSource.Token).Wait();
-                card = User.Cards.FirstOrDefault(f => f.Id == task.CardId);
-                if (card == null)
-                {
-                    list.Refresh(ct: _cancellationSource.Token).Wait();
-                    card = list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
-                }
+                list.Cards.Refresh(ct: _cancellationSource.Token).Wait();
+                card = 
+                    list.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
+                    list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
             }
 
             if (card.List.Id != task.ListId)

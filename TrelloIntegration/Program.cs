@@ -27,6 +27,9 @@
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
+        const string CARDS_OPTIONS_FILE = "cardsOptions.json";
+        const string LISTS_OPTIONS_FILE = "listsOptions.json";
+
         private static TrelloOptions _trelloOptions;
         private static TrelloService _trelloService;
         private static CommandController _trelloCommand;
@@ -49,8 +52,8 @@
 
         static void Main(string[] args)
         {
-            _card2IssueMapper = new Mapper<string, int>();
-            _list2StatusMapper = new Mapper<string, int>();
+            _card2IssueMapper = JsonConfig.Read<Mapper<string, int>>(CARDS_OPTIONS_FILE).Result;
+            _list2StatusMapper = JsonConfig.Read<Mapper<string, int>>(LISTS_OPTIONS_FILE).Result;
 
             _trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             _gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
@@ -101,6 +104,9 @@
             }
             finally
             {
+                JsonConfig.Write(_card2IssueMapper, CARDS_OPTIONS_FILE).Wait();
+                JsonConfig.Write(_list2StatusMapper, LISTS_OPTIONS_FILE).Wait();
+
                 JsonConfig.Write(_trelloOptions, TRELLO_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_redmineOptions, REDMINE_OPTIONS_FILE).Wait();
