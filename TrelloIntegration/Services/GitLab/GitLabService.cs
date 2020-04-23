@@ -61,7 +61,7 @@
             _client = _client ?? new GitLabClient(_options.Host, _options.Token);
             _queue.Start();
 
-            Enqueue(new SyncMergeRequestTask(_options.Sync));
+            Enqueue(new SyncActionTask<GitLabService>(SyncMergeRequests, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -87,38 +87,26 @@
             return true;
         }
 
-        public bool Handle(SyncMergeRequestTask task)
+        private bool SyncMergeRequests() 
         {
-            try
+            IList<MergeRequest> requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
             {
-                IList<MergeRequest> requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
-                {
-                    opt.AuthorId = task.SyncOptions.UserId;
-                }),
-                _cancellationSource.Token).Result;
+                opt.AuthorId = _options.Sync.UserId;
+            }),
+            _cancellationSource.Token).Result;
 
-                MergeRequest[] updates = requests
-                    .Where(w => !_requests.ContainsKey(w.Id) || !_requests[w.Id].Status.Equals(w.Status))
-                    .ToArray();
+            MergeRequest[] updates = requests
+                .Where(w => !_requests.ContainsKey(w.Id) || !_requests[w.Id].Status.Equals(w.Status))
+                .ToArray();
 
-                foreach (MergeRequest request in updates)
-                    _requests[request.Id] = request;
+            foreach (MergeRequest request in updates)
+                _requests[request.Id] = request;
 
-                if (updates.Any())
-                    UpdateRequests?.Invoke(this, updates);
+            if (updates.Any())
+                UpdateRequests?.Invoke(this, updates);
 
-                // TODO Handle event.
-                return true;
-            }
-            finally
-            {
-                if (_queue.HasEnabled())
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(_options.Sync.Interval);
-                        Enqueue(new SyncMergeRequestTask(_options.Sync));
-                    });
-            }
+            // TODO Handle event.
+            return true;
         }
 
         #endregion Methods

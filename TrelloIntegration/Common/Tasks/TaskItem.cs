@@ -5,7 +5,7 @@
     abstract class TaskItem<TService, TResult> : ITaskItem<TService>
         where TService : ITaskService
     {
-        public Action<TResult> Callback { get; }
+        protected Action<TResult> Callback { get; }
 
         protected TaskItem(Action<TResult> callback)
         {

@@ -65,8 +65,8 @@
             _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
-            Enqueue(new SyncStatusesTask());
-            Enqueue(new SyncIssuesTask(_options.Sync));
+            Enqueue(new SyncActionTask<RedmineService>(SyncStatuses, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<RedmineService>(SyncIssues, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -122,68 +122,44 @@
             return true;
         }
 
-        public bool Handle(SyncStatusesTask task)
+        private bool SyncIssues()
         {
-            try
-            {
-                List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
-
-                IssueStatus[] updates = statuses
-                    .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
-                    .ToArray();
-
-                foreach (IssueStatus status in updates)
-                    _statuses[status.Id] = status;
-
-                if (updates.Any())
-                    UpdateStatuses?.Invoke(this, updates.ToArray());
-
-                return true;
-            }
-            finally
-            {
-                if (_queue.HasEnabled())
-                    _ = Task.Run(async () =>
+            List<Issue> issues = Task.Run(() =>
+                _manager.ListAll<Issue>(
+                    new NameValueCollection()
                     {
-                        await Task.Delay(_options.Sync.Interval);
-                        Enqueue(new SyncStatusesTask());
-                    });
-            }
+                        { RedmineKeys.ASSIGNED_TO_ID, _options.Sync.UserId.ToString() },
+                    }),
+                _cancellationSource.Token).Result;
+
+            Issue[] updates = issues
+                .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Status.Equals(w.Status))
+                .ToArray();
+
+            foreach (Issue issue in updates)
+                _issues[issue.Id] = issue;
+
+            if (updates.Any())
+                UpdateIssues?.Invoke(this, updates);
+
+            return true;
         }
 
-        public bool Handle(SyncIssuesTask task)
+        private bool SyncStatuses()
         {
-            try
-            {
-                List<Issue> issues = Task.Run(() =>
-                    _manager.ListAll<Issue>(
-                        new NameValueCollection()
-                        {
-                            { RedmineKeys.ASSIGNED_TO_ID, task.SyncOptions.UserId.ToString() },
-                        }),
-                    _cancellationSource.Token).Result;
+            List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
 
-                Issue[] updates = issues
-                    .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Status.Equals(w.Status))
-                    .ToArray();
+            IssueStatus[] updates = statuses
+                .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
+                .ToArray();
 
-                foreach (Issue issue in updates)
-                    _issues[issue.Id] = issue;
+            foreach (IssueStatus status in updates)
+                _statuses[status.Id] = status;
 
-                if (updates.Any())
-                    UpdateIssues?.Invoke(this, updates);
+            if (updates.Any())
+                UpdateStatuses?.Invoke(this, updates.ToArray());
 
-                return true;
-            }
-            finally
-            {
-                if (_queue.HasEnabled())
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(_options.Sync.Interval);
-                        Enqueue(new SyncIssuesTask(_options.Sync));
-                    });
-            }
+            return true;
         }
 
         #endregion Methods

@@ -111,7 +111,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncCardsTask(_options.Sync));
+            Enqueue(new SyncActionTask<TrelloService>(SyncCards, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -123,7 +123,7 @@
             _queue.Stop();
         }
 
-        public void Enqueue<TResult>(TaskItem<TrelloService, TResult> task)
+        public void Enqueue(ITaskItem<TrelloService> task)
         {
             _queue.Enqueue(task);
         }
@@ -228,47 +228,35 @@
 
             return true;
         }
- 
-        public bool Handle(SyncCardsTask task)
+
+        public bool SyncCards()
         {
-            try
+            foreach (ICard card in _cards.Values)
             {
-                foreach (ICard card in _cards.Values)
-                {
-                    // Not use action refresh, it is memory leak.
-                    string listId = card.List.Id;
-                    int commentCount = card.Comments.Count();
+                // Not use action refresh, it is memory leak.
+                string listId = card.List.Id;
+                int commentCount = card.Comments.Count();
 
-                    card.Refresh(ct: _cancellationSource.Token).Wait();
+                card.Refresh(ct: _cancellationSource.Token).Wait();
 
-                    if (card.List.Id != listId)
-                        UpdateStatus?.Invoke(this, new ListEventArgs(
-                            cardId: card.Id, 
-                            prevId: listId, 
-                            currId: card.List.Id));
+                if (card.List.Id != listId)
+                    UpdateStatus?.Invoke(this, new ListEventArgs(
+                        cardId: card.Id, 
+                        prevId: listId, 
+                        currId: card.List.Id));
 
-                    if (card.Comments.Count() != commentCount &&
-                        commentCount < card.Comments.Count())
-                        for (int i = 0; i < card.Comments.Count() - commentCount; i++)
-                            UpdateComments?.Invoke(this,
-                                new CommentEventArgs(
-                                    card.Id,
-                                    card.Comments[i].Id,
-                                    card.Comments[i].Creator.Id,
-                                    card.Comments[i].Data.Text));
-                }
-
-                return true;
+                if (card.Comments.Count() != commentCount &&
+                    commentCount < card.Comments.Count())
+                    for (int i = 0; i < card.Comments.Count() - commentCount; i++)
+                        UpdateComments?.Invoke(this,
+                            new CommentEventArgs(
+                                card.Id,
+                                card.Comments[i].Id,
+                                card.Comments[i].Creator.Id,
+                                card.Comments[i].Data.Text));
             }
-            finally
-            {
-                if (_queue.HasEnabled())
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(_options.Sync.Interval);
-                        Enqueue(new SyncCardsTask(_options.Sync));
-                    });
-            }
+
+            return true;
         }
 
         #endregion Methods
