@@ -69,12 +69,24 @@
 
         public void Add(T1 t1, T2 t2)
         {
+            if (_direct.ContainsKey(t1) && !_direct[t1].Equals(t2))
+                Remove(_direct[t1]);
+
+            if (_reverse.ContainsKey(t2) && !_reverse[t2].Equals(t1))
+                Remove(t2);
+
             _direct[t1] = t2;
             _reverse[t2] = t1;
         }
 
         public void Add(KeyValuePair<T1, T2> item)
         {
+            if (_direct.ContainsKey(item.Key) && !_direct[item.Key].Equals(item.Value))
+                Remove(_direct[item.Key]);
+
+            if (_reverse.ContainsKey(item.Value) && !_reverse[item.Value].Equals(item.Key))
+                Remove(item.Value);
+
             _direct.Add(item.Key, item.Value);
             _reverse.Add(item.Value, item.Key);
         }
@@ -84,8 +96,21 @@
             if (!_direct.TryGetValue(key, out var value))
                 return true;
 
-            _reverse.Remove(value);
+            if (_reverse.ContainsKey(value))
+                _reverse.Remove(value);
+
             return _direct.Remove(key);
+        }
+
+        public bool Remove(T2 key)
+        {
+            if (!_reverse.TryGetValue(key, out var value))
+                return true;
+
+            if (_direct.ContainsKey(value))
+                _direct.Remove(value);
+
+            return _reverse.Remove(key);
         }
 
         public void Clear()

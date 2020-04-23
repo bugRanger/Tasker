@@ -90,7 +90,7 @@
                             _trelloOptions.BoardId = boardId;
 
                             _redmineService.Start();
-                            _gitlabService.Start();
+                            //_gitlabService.Start();
                         }));
 
                     while (true)
