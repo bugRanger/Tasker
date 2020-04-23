@@ -134,11 +134,12 @@
                 !_boards.TryGetValue(task.Id, out IBoard board))
             {
                 User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
-                board = User.Boards.FirstOrDefault(f => f.Id == task.Id);
-                if (board == null)
-                {
-                    board = User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
+                board = 
+                    User.Boards.FirstOrDefault(f => f.Id == task.Id) ??
+                    User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
 
+                if (task.СlearСontents)
+                {
                     board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
                     foreach (IList item in board.Lists)
                         item.IsArchived = true;

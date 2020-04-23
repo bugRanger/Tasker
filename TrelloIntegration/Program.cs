@@ -81,13 +81,16 @@
                     _gitlabService.UpdateRequests += OnGitlabService_UpdateRequests;
 
                     _trelloService.Start();
-                    _trelloService.Enqueue(new UpdateBoardTask(_trelloOptions.BoardName, _trelloOptions.BoardId,
+                    _trelloService.Enqueue(new UpdateBoardTask(
+                        id: _trelloOptions.BoardId,
+                        name: _trelloOptions.BoardName, 
+                        clear: string.IsNullOrWhiteSpace(_trelloOptions.BoardId) || _card2IssueMapper.Count == 0,
                         callback: boardId =>
                         {
                             _trelloOptions.BoardId = boardId;
 
                             _redmineService.Start();
-                            //_gitlabService.Start();
+                            _gitlabService.Start();
                         }));
 
                     while (true)
