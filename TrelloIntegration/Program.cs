@@ -158,7 +158,12 @@
 
             _redmineService.Enqueue(new UpdateIssueTask(
                 issueId: _card2IssueMapper[args.CardId], 
-                statusId: _list2StatusMapper[args.CurrListId]));
+                statusId: _list2StatusMapper[args.CurrListId],
+                callback: result => 
+                {
+                    if (!result)
+                        _trelloService.Enqueue(new UpdateCardTask(boardId: _trelloOptions.BoardId, () => args.CardId, () => args.PrevListId));
+                }));
         }
 
         static void OnTrelloService_UpdateComments(object sender, CommentEventArgs args)
@@ -193,9 +198,13 @@
             foreach (var issue in issues)
             {
                 _trelloService.Enqueue(new UpdateCardTask(
+                    boardId: _trelloOptions.BoardId,
                     subject: $"[{issue.Id}] {issue.Subject}",
                     description: issue.Description,
-                    getCardId: () => _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null,
+                    getCardId: () =>
+                    { 
+                        return _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null;  
+                    },
                     getListId: () => _list2StatusMapper.TryGetValue(issue.Status.Id, out string listId) ? listId : null,
                     callback: cardId =>
                     {

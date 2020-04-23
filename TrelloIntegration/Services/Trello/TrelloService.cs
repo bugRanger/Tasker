@@ -85,7 +85,7 @@
             _factory = _factory ?? new TrelloFactory();
 
             TrelloConfiguration.EnableDeepDownloads = false;
-            TrelloConfiguration.EnableConsistencyProcessing = false;
+            TrelloConfiguration.EnableConsistencyProcessing = true;
             TrelloConfiguration.HttpClientFactory = () =>
             {
                 return
@@ -96,12 +96,17 @@
                         });
             };
 
+            List.DownloadedFields =
+                List.Fields.Name |
+                List.Fields.IsClosed |
+                List.Fields.Position |
+                List.Fields.Board;
+
             Card.DownloadedFields =
                 Card.Fields.Name |
                 Card.Fields.Position |
                 Card.Fields.Description |
                 Card.Fields.List |
-                Card.Fields.Actions |
                 Card.Fields.Comments;
 
             _queue.Start();
@@ -171,6 +176,10 @@
 
         public string Handle(UpdateCardTask task)
         {
+            if (string.IsNullOrWhiteSpace(task.BoardId) ||
+                !_boards.TryGetValue(task.BoardId, out IBoard board))
+                return null;
+
             if (string.IsNullOrWhiteSpace(task.ListId) || 
                 !_lists.TryGetValue(task.ListId, out IList list))
                 return null;
@@ -178,16 +187,16 @@
             if (string.IsNullOrWhiteSpace(task.CardId) || 
                 !_cards.TryGetValue(task.CardId, out ICard card))
             {
-                list.Cards.Refresh(ct: _cancellationSource.Token).Wait();
+                board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
                 card = 
-                    list.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
+                    board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
                     list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
             }
 
             if (card.List.Id != task.ListId)
                 card.List = _lists[task.ListId];
 
-            if (card.Description != task.Description)
+            if (!string.IsNullOrWhiteSpace(task.Description) && card.Description != task.Description)
                 card.Description = task.Description;
 
             _cards[card.Id] = card;
