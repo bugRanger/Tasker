@@ -14,6 +14,7 @@
         #endregion Fields
 
         #region Properties
+        public string BoardId { get; }
 
         public string CardId => _getCardId?.Invoke() ?? null;
 
@@ -25,8 +26,9 @@
 
         #endregion Properties
 
-        public UpdateCardTask(Func<string> getCardId, Func<string> getListId, string subject, string description, Action<string> callback = null) : base(callback)
+        public UpdateCardTask(string boardId, Func<string> getCardId, Func<string> getListId, string subject = null, string description = null, Action<string> callback = null) : base(callback)
         {
+            BoardId = boardId;
             _getCardId = getCardId;
             _getListId = getListId;
 

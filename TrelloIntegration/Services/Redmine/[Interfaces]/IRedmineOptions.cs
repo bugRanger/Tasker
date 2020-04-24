@@ -8,6 +8,8 @@
 
         float EstimatedHoursABS { get; }
 
+        int[] Statuses { get; }
+
         IRedmineSync Sync { get; }
     }
 }

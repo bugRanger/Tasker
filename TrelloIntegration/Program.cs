@@ -81,7 +81,10 @@
                     _gitlabService.UpdateRequests += OnGitlabService_UpdateRequests;
 
                     _trelloService.Start();
-                    _trelloService.Enqueue(new UpdateBoardTask(_trelloOptions.BoardName, _trelloOptions.BoardId,
+                    _trelloService.Enqueue(new UpdateBoardTask(
+                        id: _trelloOptions.BoardId,
+                        name: _trelloOptions.BoardName, 
+                        clear: string.IsNullOrWhiteSpace(_trelloOptions.BoardId) || _card2IssueMapper.Count == 0,
                         callback: boardId =>
                         {
                             _trelloOptions.BoardId = boardId;
@@ -158,7 +161,12 @@
 
             _redmineService.Enqueue(new UpdateIssueTask(
                 issueId: _card2IssueMapper[args.CardId], 
-                statusId: _list2StatusMapper[args.CurrListId]));
+                statusId: _list2StatusMapper[args.CurrListId],
+                callback: result => 
+                {
+                    if (!result)
+                        _trelloService.Enqueue(new UpdateCardTask(boardId: _trelloOptions.BoardId, () => args.CardId, () => args.PrevListId));
+                }));
         }
 
         static void OnTrelloService_UpdateComments(object sender, CommentEventArgs args)
@@ -193,9 +201,13 @@
             foreach (var issue in issues)
             {
                 _trelloService.Enqueue(new UpdateCardTask(
+                    boardId: _trelloOptions.BoardId,
                     subject: $"[{issue.Id}] {issue.Subject}",
                     description: issue.Description,
-                    getCardId: () => _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null,
+                    getCardId: () =>
+                    { 
+                        return _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null;  
+                    },
                     getListId: () => _list2StatusMapper.TryGetValue(issue.Status.Id, out string listId) ? listId : null,
                     callback: cardId =>
                     {

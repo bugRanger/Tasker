@@ -85,7 +85,7 @@
             _factory = _factory ?? new TrelloFactory();
 
             TrelloConfiguration.EnableDeepDownloads = false;
-            TrelloConfiguration.EnableConsistencyProcessing = false;
+            TrelloConfiguration.EnableConsistencyProcessing = true;
             TrelloConfiguration.HttpClientFactory = () =>
             {
                 return
@@ -96,17 +96,22 @@
                         });
             };
 
+            List.DownloadedFields =
+                List.Fields.Name |
+                List.Fields.IsClosed |
+                List.Fields.Position |
+                List.Fields.Board;
+
             Card.DownloadedFields =
                 Card.Fields.Name |
                 Card.Fields.Position |
                 Card.Fields.Description |
                 Card.Fields.List |
-                Card.Fields.Actions |
                 Card.Fields.Comments;
 
             _queue.Start();
 
-            Enqueue(new SyncCardsTask(_options.Sync));
+            Enqueue(new SyncActionTask<TrelloService>(SyncCards, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -118,7 +123,7 @@
             _queue.Stop();
         }
 
-        public void Enqueue<TResult>(TaskItem<TrelloService, TResult> task)
+        public void Enqueue(ITaskItem<TrelloService> task)
         {
             _queue.Enqueue(task);
         }
@@ -129,11 +134,12 @@
                 !_boards.TryGetValue(task.Id, out IBoard board))
             {
                 User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
-                board = User.Boards.FirstOrDefault(f => f.Id == task.Id);
-                if (board == null)
-                {
-                    board = User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
+                board = 
+                    User.Boards.FirstOrDefault(f => f.Id == task.Id) ??
+                    User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
 
+                if (task.СlearСontents)
+                {
                     board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
                     foreach (IList item in board.Lists)
                         item.IsArchived = true;
@@ -171,6 +177,10 @@
 
         public string Handle(UpdateCardTask task)
         {
+            if (string.IsNullOrWhiteSpace(task.BoardId) ||
+                !_boards.TryGetValue(task.BoardId, out IBoard board))
+                return null;
+
             if (string.IsNullOrWhiteSpace(task.ListId) || 
                 !_lists.TryGetValue(task.ListId, out IList list))
                 return null;
@@ -178,16 +188,16 @@
             if (string.IsNullOrWhiteSpace(task.CardId) || 
                 !_cards.TryGetValue(task.CardId, out ICard card))
             {
-                list.Cards.Refresh(ct: _cancellationSource.Token).Wait();
+                board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
                 card = 
-                    list.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
+                    board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
                     list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
             }
 
             if (card.List.Id != task.ListId)
                 card.List = _lists[task.ListId];
 
-            if (card.Description != task.Description)
+            if (!string.IsNullOrWhiteSpace(task.Description) && card.Description != task.Description)
                 card.Description = task.Description;
 
             _cards[card.Id] = card;
@@ -218,47 +228,35 @@
 
             return true;
         }
- 
-        public bool Handle(SyncCardsTask task)
+
+        public bool SyncCards()
         {
-            try
+            foreach (ICard card in _cards.Values)
             {
-                foreach (ICard card in _cards.Values)
-                {
-                    // Not use action refresh, it is memory leak.
-                    string listId = card.List.Id;
-                    int commentCount = card.Comments.Count();
+                // Not use action refresh, it is memory leak.
+                string listId = card.List.Id;
+                int commentCount = card.Comments.Count();
 
-                    card.Refresh(ct: _cancellationSource.Token).Wait();
+                card.Refresh(ct: _cancellationSource.Token).Wait();
 
-                    if (card.List.Id != listId)
-                        UpdateStatus?.Invoke(this, new ListEventArgs(
-                            cardId: card.Id, 
-                            prevId: listId, 
-                            currId: card.List.Id));
+                if (card.List.Id != listId)
+                    UpdateStatus?.Invoke(this, new ListEventArgs(
+                        cardId: card.Id, 
+                        prevId: listId, 
+                        currId: card.List.Id));
 
-                    if (card.Comments.Count() != commentCount &&
-                        commentCount < card.Comments.Count())
-                        for (int i = 0; i < card.Comments.Count() - commentCount; i++)
-                            UpdateComments?.Invoke(this,
-                                new CommentEventArgs(
-                                    card.Id,
-                                    card.Comments[i].Id,
-                                    card.Comments[i].Creator.Id,
-                                    card.Comments[i].Data.Text));
-                }
-
-                return true;
+                if (card.Comments.Count() != commentCount &&
+                    commentCount < card.Comments.Count())
+                    for (int i = 0; i < card.Comments.Count() - commentCount; i++)
+                        UpdateComments?.Invoke(this,
+                            new CommentEventArgs(
+                                card.Id,
+                                card.Comments[i].Id,
+                                card.Comments[i].Creator.Id,
+                                card.Comments[i].Data.Text));
             }
-            finally
-            {
-                if (_queue.HasEnabled())
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(_options.Sync.Interval);
-                        Enqueue(new SyncCardsTask(_options.Sync));
-                    });
-            }
+
+            return true;
         }
 
         #endregion Methods

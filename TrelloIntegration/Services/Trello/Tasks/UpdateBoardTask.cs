@@ -11,11 +11,14 @@
 
         public string Description { get; }
 
-        public UpdateBoardTask(string name, string id = null, string desc = null, Action<string> callback = null) : base(callback)
+        public bool СlearСontents { get; }
+
+        public UpdateBoardTask(string name, string id = null, string desc = null, bool clear = false, Action<string> callback = null) : base(callback)
         {
             Id = id;
             Name = name;
             Description = desc;
+            СlearСontents = clear;
         }
 
         protected override string HandleImpl(TrelloService service)
