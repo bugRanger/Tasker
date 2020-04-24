@@ -197,6 +197,11 @@
 
         static void OnRedmineService_UpdateIssues(object sender, Issue[] issues)
         {
+            // TODO Add support custom fields.
+            //// Update custom fields.
+            //issues.Select(s = > s.CustomField);
+            //_trelloService.Enqueue(new UpdateFieldTask())
+
             // Update cards.
             foreach (var issue in issues)
             {

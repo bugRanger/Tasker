@@ -23,6 +23,7 @@
         private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
         private Dictionary<string, IList> _lists;
+        private Dictionary<string, ICustomFieldDefinition> _fields;
         private ITaskQueue<TrelloService> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -56,8 +57,9 @@
         public TrelloService(ITrelloOptions options)
         {
             _boards = new Dictionary<string, IBoard>();
-            _cards = new Dictionary<string, ICard>();
+            _fields = new Dictionary<string, ICustomFieldDefinition>();
             _lists = new Dictionary<string, IList>();
+            _cards = new Dictionary<string, ICard>();
 
             _cancellationSource = new CancellationTokenSource();
             _options = options;
@@ -85,7 +87,7 @@
             _factory = _factory ?? new TrelloFactory();
 
             TrelloConfiguration.EnableDeepDownloads = false;
-            TrelloConfiguration.EnableConsistencyProcessing = true;
+            TrelloConfiguration.EnableConsistencyProcessing = false;
             TrelloConfiguration.HttpClientFactory = () =>
             {
                 return
@@ -97,16 +99,17 @@
             };
 
             List.DownloadedFields =
+                List.Fields.Board |
                 List.Fields.Name |
                 List.Fields.IsClosed |
-                List.Fields.Position |
-                List.Fields.Board;
+                List.Fields.Position;
 
             Card.DownloadedFields =
+                Card.Fields.List |
                 Card.Fields.Name |
                 Card.Fields.Position |
                 Card.Fields.Description |
-                Card.Fields.List |
+                Card.Fields.CustomFields |
                 Card.Fields.Comments;
 
             _queue.Start();
@@ -134,6 +137,7 @@
                 !_boards.TryGetValue(task.Id, out IBoard board))
             {
                 User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
+
                 board = 
                     User.Boards.FirstOrDefault(f => f.Id == task.Id) ??
                     User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
@@ -154,6 +158,25 @@
 
             _boards[board.Id] = board;
             return board.Id;
+        }
+
+        public string Handle(UpdateFieldTask task)
+        {
+            if (string.IsNullOrWhiteSpace(task.BoardId) ||
+                !_boards.TryGetValue(task.BoardId, out IBoard board))
+                return null;
+
+            if (string.IsNullOrWhiteSpace(task.Id) ||
+                !_fields.TryGetValue(task.Id, out ICustomFieldDefinition field))
+            {
+                board.CustomFields.Refresh(ct: _cancellationSource.Token).Wait();
+                field =
+                    board.CustomFields.FirstOrDefault(f => f.Id == task.Id) ??
+                    board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
+            }
+
+            _fields[field.Id] = field;
+            return field.Id;
         }
 
         public string Handle(UpdateListTask task)
@@ -244,6 +267,17 @@
                         cardId: card.Id, 
                         prevId: listId, 
                         currId: card.List.Id));
+
+                // TODO Add notification for upgrade cards.
+                //card.CustomFields.Refresh(ct: _cancellationSource.Token).Wait();
+                //foreach (var item in card.CustomFields)
+                //{
+                //    item.Refresh();
+                //    item.Definition.Refresh();
+                //    item.Definition.Options.Refresh();
+                //    // TODO Add support new value.
+                //    item.Definition.SetValueForCard
+                //}
 
                 if (card.Comments.Count() != commentCount &&
                     commentCount < card.Comments.Count())
