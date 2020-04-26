@@ -19,6 +19,7 @@
 
         private IRedmineOptions _options;
         private RedmineManager _manager;
+        private Dictionary<int, Project> _projects;
         private Dictionary<int, Issue> _issues;
         private Dictionary<int, IssueStatus> _statuses;
         private ITaskQueue<RedmineService> _queue;
@@ -28,6 +29,7 @@
 
         #region Events
 
+        public event EventHandler<Project[]> UpdateProjects;
         public event EventHandler<Issue[]> UpdateIssues;
         public event EventHandler<IssueStatus[]> UpdateStatuses;
         public event EventHandler<string> Error;
@@ -38,6 +40,7 @@
 
         public RedmineService(IRedmineOptions options)
         {
+            _projects = new Dictionary<int, Project>();
             _issues = new Dictionary<int, Issue>();
             _statuses = new Dictionary<int, IssueStatus>();
 
@@ -65,6 +68,7 @@
             _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
+            Enqueue(new SyncActionTask<RedmineService>(SyncProjects, _queue, _options.Sync.Interval));
             Enqueue(new SyncActionTask<RedmineService>(SyncStatuses, _queue, _options.Sync.Interval));
             Enqueue(new SyncActionTask<RedmineService>(SyncIssues, _queue, _options.Sync.Interval));
         }
@@ -147,17 +151,34 @@
 
         private bool SyncStatuses()
         {
-            List<IssueStatus> statuses = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
+            List<IssueStatus> values = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
 
-            IssueStatus[] updates = statuses
+            IssueStatus[] updates = values
                 .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
                 .ToArray();
 
-            foreach (IssueStatus status in updates)
-                _statuses[status.Id] = status;
+            foreach (IssueStatus item in updates)
+                _statuses[item.Id] = item;
 
             if (updates.Any())
                 UpdateStatuses?.Invoke(this, updates.ToArray());
+
+            return true;
+        }
+
+        private bool SyncProjects()
+        {
+            List<Project> values = Task.Run(() => _manager.ListAll<Project>(new NameValueCollection()), _cancellationSource.Token).Result;
+
+            Project[] updates = values
+                .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
+                .ToArray();
+
+            foreach (Project item in updates)
+                _projects[item.Id] = item;
+
+            if (updates.Any())
+                UpdateProjects?.Invoke(this, updates.ToArray());
 
             return true;
         }

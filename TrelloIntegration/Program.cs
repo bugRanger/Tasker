@@ -9,6 +9,7 @@
 
     using TrelloIntegration.Common;
     using TrelloIntegration.Common.Command;
+
     using TrelloIntegration.Services;
 
     using TrelloIntegration.Services.Trello;
@@ -29,6 +30,7 @@
 
         const string CARDS_OPTIONS_FILE = "cardsOptions.json";
         const string LISTS_OPTIONS_FILE = "listsOptions.json";
+        const string LABEL_OPTIONS_FILE = "labelOptions.json";
 
         private static TrelloOptions _trelloOptions;
         private static TrelloService _trelloService;
@@ -50,10 +52,16 @@
         /// </summary>
         private static Mapper<string, int> _list2StatusMapper;
 
+        /// <summary>
+        /// Trello label convert to redmine projects.
+        /// </summary>
+        private static Mapper<string, int> _label2ProjectMapper;
+
         static void Main(string[] args)
         {
             _card2IssueMapper = JsonConfig.Read<Mapper<string, int>>(CARDS_OPTIONS_FILE).Result;
             _list2StatusMapper = JsonConfig.Read<Mapper<string, int>>(LISTS_OPTIONS_FILE).Result;
+            _label2ProjectMapper = JsonConfig.Read<Mapper<string, int>>(LABEL_OPTIONS_FILE).Result;
 
             _trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             _gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
@@ -72,6 +80,7 @@
                     _redmineService.Error += (s, error) => Console.WriteLine(error);
                     _redmineService.UpdateStatuses += OnRedmineService_UpdateStatuses;
                     _redmineService.UpdateIssues += OnRedmineService_UpdateIssues;
+                    _redmineService.UpdateProjects += OnRedmine_UpdateProjects;
 
                     _trelloService.Error += (s, error) => Console.WriteLine(error);
                     _trelloService.UpdateComments += OnTrelloService_UpdateComments;
@@ -90,7 +99,7 @@
                             _trelloOptions.BoardId = boardId;
 
                             _redmineService.Start();
-                            //_gitlabService.Start();
+                            _gitlabService.Start();
                         }));
 
                     while (true)
@@ -109,6 +118,7 @@
             {
                 JsonConfig.Write(_card2IssueMapper, CARDS_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_list2StatusMapper, LISTS_OPTIONS_FILE).Wait();
+                JsonConfig.Write(_label2ProjectMapper, LABEL_OPTIONS_FILE).Wait();
 
                 JsonConfig.Write(_trelloOptions, TRELLO_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
@@ -197,11 +207,6 @@
 
         static void OnRedmineService_UpdateIssues(object sender, Issue[] issues)
         {
-            // TODO Add support custom fields.
-            //// Update custom fields.
-            //issues.Select(s = > s.CustomField);
-            //_trelloService.Enqueue(new UpdateFieldTask())
-
             // Update cards.
             foreach (var issue in issues)
             {
@@ -209,11 +214,9 @@
                     boardId: _trelloOptions.BoardId,
                     subject: $"[{issue.Id}] {issue.Subject}",
                     description: issue.Description,
-                    getCardId: () =>
-                    { 
-                        return _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null;  
-                    },
+                    getCardId: () => _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null,
                     getListId: () => _list2StatusMapper.TryGetValue(issue.Status.Id, out string listId) ? listId : null,
+                    getLabelId: () => _label2ProjectMapper.TryGetValue(issue.Project.Id, out string labelId) ? labelId : null,
                     callback: cardId =>
                     {
                         if (string.IsNullOrWhiteSpace(cardId))
@@ -248,6 +251,25 @@
                             return;
 
                         _list2StatusMapper.Add(listId, statusId);
+                    }));
+            }
+        }
+
+        private static void OnRedmine_UpdateProjects(object sender, Project[] projects)
+        {
+            foreach (var project in projects)
+            {
+                string labelId = _label2ProjectMapper.TryGetValue(project.Id, out string label) ? label : null;
+                _trelloService.Enqueue(new UpdateLabelTask(
+                    boardId: _trelloOptions.BoardId,
+                    id: labelId,
+                    name: project.Name,
+                    callback: labelId =>
+                    {
+                        if (string.IsNullOrWhiteSpace(labelId))
+                            return;
+
+                        _label2ProjectMapper.Add(labelId, project.Id); 
                     }));
             }
         }

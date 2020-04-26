@@ -23,6 +23,7 @@
         private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
         private Dictionary<string, IList> _lists;
+        private Dictionary<string, ILabel> _labels;
         private Dictionary<string, ICustomFieldDefinition> _fields;
         private ITaskQueue<TrelloService> _queue;
         private CancellationTokenSource _cancellationSource;
@@ -58,6 +59,7 @@
         {
             _boards = new Dictionary<string, IBoard>();
             _fields = new Dictionary<string, ICustomFieldDefinition>();
+            _labels = new Dictionary<string, ILabel>();
             _lists = new Dictionary<string, IList>();
             _cards = new Dictionary<string, ICard>();
 
@@ -179,6 +181,25 @@
             return field.Id;
         }
 
+        public string Handle(UpdateLabelTask task)
+        {
+            if (string.IsNullOrWhiteSpace(task.BoardId) ||
+                !_boards.TryGetValue(task.BoardId, out IBoard board))
+                return null;
+
+            if (string.IsNullOrWhiteSpace(task.Id) ||
+                !_labels.TryGetValue(task.Id, out ILabel item))
+            {
+                board.Labels.Refresh(ct: _cancellationSource.Token).Wait();
+                item =
+                    board.Labels.FirstOrDefault(f => f.Id == task.Id) ??
+                    board.Labels.Add(task.Name, task.Color, ct: _cancellationSource.Token).Result;
+            }
+
+            _labels[item.Id] = item;
+            return item.Id;
+        }
+
         public string Handle(UpdateListTask task)
         {
             if (string.IsNullOrWhiteSpace(task.BoardId) || 
@@ -222,6 +243,9 @@
 
             if (!string.IsNullOrWhiteSpace(task.Description) && card.Description != task.Description)
                 card.Description = task.Description;
+
+            if (!string.IsNullOrWhiteSpace(task.LabelId) && _labels.TryGetValue(task.LabelId, out ILabel label))
+                card.Labels.Add(label, ct: _cancellationSource.Token).Wait();
 
             _cards[card.Id] = card;
             return card.Id;
