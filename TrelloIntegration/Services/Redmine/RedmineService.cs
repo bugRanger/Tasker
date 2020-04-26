@@ -171,7 +171,7 @@
             List<Project> values = Task.Run(() => _manager.ListAll<Project>(new NameValueCollection()), _cancellationSource.Token).Result;
 
             Project[] updates = values
-                .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
+                .Where(w => !_projects.ContainsKey(w.Id) || !_projects[w.Id].Equals(w))
                 .ToArray();
 
             foreach (Project item in updates)
