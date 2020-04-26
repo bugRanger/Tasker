@@ -108,6 +108,7 @@
 
             Card.DownloadedFields =
                 Card.Fields.List |
+                Card.Fields.Labels |
                 Card.Fields.Name |
                 Card.Fields.Position |
                 Card.Fields.Description |
@@ -245,7 +246,11 @@
                 card.Description = task.Description;
 
             if (!string.IsNullOrWhiteSpace(task.LabelId) && _labels.TryGetValue(task.LabelId, out ILabel label))
-                card.Labels.Add(label, ct: _cancellationSource.Token).Wait();
+            {
+                card.Labels.Refresh(ct: _cancellationSource.Token).Wait();
+                if (card.Labels.FirstOrDefault(f => f.Id == label.Id) == null)
+                    card.Labels.Add(label, ct: _cancellationSource.Token).Wait();
+            }
 
             _cards[card.Id] = card;
             return card.Id;
