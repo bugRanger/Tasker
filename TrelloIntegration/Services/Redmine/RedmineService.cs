@@ -130,19 +130,26 @@
             return true;
         }
 
-        private bool SyncIssues()
+        private T[] GetListAll<T>(Func<T, bool> predicate) where T : class, new()
         {
-            List<Issue> issues = Task.Run(() =>
-                _manager.ListAll<Issue>(
+            List<T> list = Task.Run(() => 
+                _manager.ListAll<T>(
                     new NameValueCollection()
                     {
                         { RedmineKeys.ASSIGNED_TO_ID, _options.Sync.UserId.ToString() },
                     }),
                 _cancellationSource.Token).Result;
 
-            Issue[] updates = issues
-                .Where(w => !_issues.ContainsKey(w.Id) || !_issues[w.Id].Status.Equals(w.Status))
+            T[] updates = list
+                .Where(predicate)
                 .ToArray();
+
+            return updates;
+        }
+
+        private bool SyncIssues()
+        {
+            Issue[] updates = GetListAll<Issue>(issue => !_issues.ContainsKey(issue.Id) || !_issues[issue.Id].Status.Equals(issue.Status));
 
             foreach (Issue issue in updates)
                 _issues[issue.Id] = issue;
@@ -155,11 +162,7 @@
 
         private bool SyncStatuses()
         {
-            List<IssueStatus> values = Task.Run(() => _manager.ListAll<IssueStatus>(new NameValueCollection()), _cancellationSource.Token).Result;
-
-            IssueStatus[] updates = values
-                .Where(w => !_statuses.ContainsKey(w.Id) || !_statuses[w.Id].Equals(w))
-                .ToArray();
+            IssueStatus[] updates = GetListAll<IssueStatus>(status => !_statuses.ContainsKey(status.Id) || !_statuses[status.Id].Equals(status));
 
             foreach (IssueStatus item in updates)
                 _statuses[item.Id] = item;
@@ -172,11 +175,7 @@
 
         private bool SyncProjects()
         {
-            List<Project> values = Task.Run(() => _manager.ListAll<Project>(new NameValueCollection()), _cancellationSource.Token).Result;
-
-            Project[] updates = values
-                .Where(w => !_projects.ContainsKey(w.Id) || !_projects[w.Id].Equals(w))
-                .ToArray();
+            Project[] updates = GetListAll<Project>(project => !_projects.ContainsKey(project.Id) || !_projects[project.Id].Equals(project));
 
             foreach (Project item in updates)
                 _projects[item.Id] = item;
