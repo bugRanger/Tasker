@@ -6,6 +6,8 @@
 
         string ApiKey { get; }
 
+        decimal EstimatedHoursLowerLimit { get; }
+
         float EstimatedHoursABS { get; }
 
         int[] Statuses { get; }

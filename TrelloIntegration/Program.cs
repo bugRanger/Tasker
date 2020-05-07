@@ -212,7 +212,7 @@
             {
                 _trelloService.Enqueue(new UpdateCardTask(
                     boardId: _trelloOptions.BoardId,
-                    subject: $"[{issue.Id}] {issue.Subject}",
+                    subject: $"[{issue.Id}] {issue.Subject}{(issue.EstimatedHours.HasValue && issue.SpentHours.HasValue ? $" - {issue.EstimatedHours}/{issue.SpentHours}" : null)}",
                     description: issue.Description,
                     getCardId: () => _card2IssueMapper.TryGetValue(issue.Id, out string cardId) ? cardId : null,
                     getListId: () => _list2StatusMapper.TryGetValue(issue.Status.Id, out string listId) ? listId : null,

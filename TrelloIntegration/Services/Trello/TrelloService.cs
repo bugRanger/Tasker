@@ -242,6 +242,9 @@
             if (card.List.Id != task.ListId)
                 card.List = _lists[task.ListId];
 
+            if (!string.IsNullOrWhiteSpace(card.Name) && card.Name != task.Subject)
+                card.Name = task.Subject;
+
             if (!string.IsNullOrWhiteSpace(task.Description) && card.Description != task.Description)
                 card.Description = task.Description;
 

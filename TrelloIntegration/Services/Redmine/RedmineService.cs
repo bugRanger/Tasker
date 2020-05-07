@@ -92,7 +92,11 @@
             if (!_issues.ContainsKey(task.IssueId))
                 return false;
 
-            var hours = decimal.Round(task.Hours, 1);
+            var hours = 
+                task.Hours < _options.EstimatedHoursLowerLimit
+                    ? _options.EstimatedHoursLowerLimit 
+                    : decimal.Round(task.Hours, 1);
+
             if (hours == 0)
                 return false;
 
