@@ -3,7 +3,7 @@
     using System;
 
     abstract class TaskItem<TService, TResult> : ITaskItem<TService>
-        where TService : ITaskService
+        where TService : IServiceVisitor
     {
         protected Action<TResult> Callback { get; }
 

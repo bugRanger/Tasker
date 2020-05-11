@@ -47,7 +47,7 @@
     }
 
     class TaskQueue<TService> : ITaskQueue<TService>
-        where TService : ITaskService
+        where TService : IServiceVisitor
     {
         #region Fields
 

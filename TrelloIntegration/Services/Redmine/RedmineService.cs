@@ -13,7 +13,7 @@
     using RedmineApi.Core;
     using RedmineApi.Core.Types;
 
-    class RedmineService : ITaskService, IDisposable
+    class RedmineService : IRedmineVisitor, ITaskService, IDisposable
     {
         #region Fields
 

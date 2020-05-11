@@ -11,9 +11,9 @@
 
         public string Description { get; }
 
-        public bool СlearСontents { get; }
+        public Func<string, bool> СlearСontents { get; }
 
-        public UpdateBoardTask(string name, string id = null, string desc = null, bool clear = false, Action<string> callback = null) : base(callback)
+        public UpdateBoardTask(string name, string id = null, string desc = null, Func<string, bool> clear = null, Action<string> callback = null) : base(callback)
         {
             Id = id;
             Name = name;

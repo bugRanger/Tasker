@@ -93,7 +93,7 @@
                     _trelloService.Enqueue(new UpdateBoardTask(
                         id: _trelloOptions.BoardId,
                         name: _trelloOptions.BoardName, 
-                        clear: string.IsNullOrWhiteSpace(_trelloOptions.BoardId) || _card2IssueMapper.Count == 0,
+                        clear: id => id != _trelloOptions.BoardId,
                         callback: boardId =>
                         {
                             _trelloOptions.BoardId = boardId;

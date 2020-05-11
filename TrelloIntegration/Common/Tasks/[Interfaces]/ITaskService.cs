@@ -2,7 +2,7 @@
 {
     using System;
 
-    interface ITaskService
+    interface ITaskService 
     {
         event EventHandler<string> Error;
 

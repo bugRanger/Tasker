@@ -13,7 +13,7 @@
 
     using Manatee.Trello;
 
-    class TrelloService : ITaskService, IDisposable
+    class TrelloService : ITrelloVisitor, ITaskService, IDisposable
     {
         #region Fields
 
@@ -145,7 +145,7 @@
                     User.Boards.FirstOrDefault(f => f.Id == task.Id) ??
                     User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
 
-                if (task.СlearСontents)
+                if (task.СlearСontents?.Invoke(board.Id) == true)
                 {
                     board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
                     foreach (IList item in board.Lists)

@@ -4,7 +4,7 @@
     using System.Threading.Tasks;
 
     class SyncActionTask<T> : TaskItem<T, bool>
-        where T : ITaskService
+        where T : IServiceVisitor
     {
         private const int DEFAULT_INTERVAL = 100;
 

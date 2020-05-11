@@ -3,7 +3,7 @@
     using System;
 
     interface ITaskQueue<TService>
-        where TService : ITaskService
+        where TService : IServiceVisitor
     {
         event EventHandler<string> Error;
 

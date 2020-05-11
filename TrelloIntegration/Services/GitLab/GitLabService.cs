@@ -11,10 +11,11 @@
     using TrelloIntegration.Services.GitLab.Tasks;
 
     using GitLabApiClient;
-    using GitLabApiClient.Models.MergeRequests.Responses;
     using GitLabApiClient.Models.MergeRequests.Requests;
+    using GitLabApiClient.Models.MergeRequests.Responses;
+    using GitLabApiClient.Models.Branches.Responses;
 
-    class GitLabService : ITaskService, IDisposable
+    class GitLabService : IGitLabVisitor, ITaskService, IDisposable
     {
         #region Fields
 
@@ -29,6 +30,7 @@
         #region Events
 
         public event EventHandler<MergeRequest[]> UpdateRequests;
+        public event EventHandler<Branch[]> UpdateBranches;
         public event EventHandler<string> Error;
 
         #endregion Events
