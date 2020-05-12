@@ -8,21 +8,22 @@
     {
         private const int DEFAULT_INTERVAL = 100;
 
-        public int? Interval { get; }
+        private readonly ITaskQueue<T> _queue;
 
-        public ITaskQueue<T> Queue { get; }
+        public int? Interval { get; }
 
         public Func<bool> Action { get; }
 
-        public SyncActionTask(SyncActionTask<T> task) : this(task.Action, task.Queue, task.Interval, task.Callback)
+        public SyncActionTask(SyncActionTask<T> task) : this(task.Action, task._queue, task.Interval, task.Callback)
         {
         }
 
-        public SyncActionTask(Func<bool> action, ITaskQueue<T> queue, int? interval = null, Action<bool> callback = null) : base(callback)
+        public SyncActionTask(Func<bool> action, ITaskQueue<T> queue = null, int? interval = null, Action<bool> callback = null) : base(callback)
         {
             Interval = interval;
-            Queue = queue;
             Action = action;
+
+            _queue = queue;
         }
 
         protected override bool HandleImpl(T service)
@@ -33,12 +34,12 @@
             }
             finally
             {
-                if (Queue.HasEnabled())
+                if (_queue?.HasEnabled() == true)
                 {
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(Interval ?? DEFAULT_INTERVAL);
-                        Queue.Enqueue(new SyncActionTask<T>(this));
+                        _queue.Enqueue(new SyncActionTask<T>(this));
                     });
                 }
             }

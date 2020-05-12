@@ -68,8 +68,8 @@
             _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
-            Enqueue(new SyncActionTask<RedmineService>(SyncProjects, _queue, _options.Sync.Interval));
-            Enqueue(new SyncActionTask<RedmineService>(SyncStatuses, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<RedmineService>(SyncProjects));
+            Enqueue(new SyncActionTask<RedmineService>(SyncStatuses));
             Enqueue(new SyncActionTask<RedmineService>(SyncIssues, _queue, _options.Sync.Interval));
         }
 
