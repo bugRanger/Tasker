@@ -255,7 +255,7 @@
             }
         }
 
-        private static void OnRedmine_UpdateProjects(object sender, Project[] projects)
+        static void OnRedmine_UpdateProjects(object sender, Project[] projects)
         {
             foreach (var project in projects)
             {
