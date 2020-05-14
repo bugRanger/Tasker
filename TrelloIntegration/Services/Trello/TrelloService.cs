@@ -42,6 +42,10 @@
 
         public string Mention => User?.Mention ?? null;
 
+        public static Emoji Success = Emojis.WhiteCheckMark;
+
+        public static Emoji Failed = Emojis.FaceWithSymbolsOnMouth;
+
         #endregion Properties
 
         #region Events
@@ -98,6 +102,9 @@
                             DefaultProxyCredentials = CredentialCache.DefaultCredentials
                         });
             };
+
+            Manatee.Trello.Action.DownloadedFields |=
+                Manatee.Trello.Action.Fields.Reactions;
 
             List.DownloadedFields =
                 List.Fields.Board |
@@ -176,6 +183,9 @@
                     board.CustomFields.FirstOrDefault(f => f.Id == task.Id) ??
                     board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
             }
+
+            if (!string.IsNullOrWhiteSpace(field.Name) && field.Name != task.Name)
+                field.Name = task.Name;
 
             _fields[field.Id] = field;
             return field.Id;
@@ -258,6 +268,37 @@
             return card.Id;
         }
 
+        public bool Handle(UpdateCardFieldTask task)
+        {
+            if (string.IsNullOrWhiteSpace(task.FieldId) || !_fields.TryGetValue(task.FieldId, out ICustomFieldDefinition field) ||
+                string.IsNullOrWhiteSpace(task.CardId) || !_cards.TryGetValue(task.CardId, out ICard card))
+                return false;
+
+            switch (field.Type)
+            {
+                case CustomFieldType.CheckBox:
+                    field.SetValueForCard(card, task.Value != null ? (bool?)Convert.ChangeType(task.Value, typeof(bool)) : null, _cancellationSource.Token).Wait();
+                    break;
+
+                case CustomFieldType.Number:
+                    field.SetValueForCard(card, task.Value != null ? (double?)Convert.ChangeType(task.Value, typeof(double)) : null, _cancellationSource.Token).Wait();
+                    break;
+
+                case CustomFieldType.Text:
+                    field.SetValueForCard(card, (string)Convert.ChangeType(task.Value, typeof(string)), _cancellationSource.Token).Wait();
+                    break;
+
+                case CustomFieldType.DateTime:
+                    field.SetValueForCard(card, task.Value != null ? (DateTime?)Convert.ChangeType(task.Value, typeof(DateTime)) : null, _cancellationSource.Token).Wait();
+                    break;
+
+                default:
+                    return false;
+            }
+
+            return true;
+        }
+
         public bool Handle(AddCommentTask task)
         {
             if (string.IsNullOrWhiteSpace(task.Comment) ||
@@ -310,15 +351,22 @@
                 //    item.Definition.SetValueForCard
                 //}
 
-                if (card.Comments.Count() != commentCount &&
-                    commentCount < card.Comments.Count())
-                    for (int i = 0; i < card.Comments.Count() - commentCount; i++)
-                        UpdateComments?.Invoke(this,
-                            new CommentEventArgs(
-                                card.Id,
-                                card.Comments[i].Id,
-                                card.Comments[i].Creator.Id,
-                                card.Comments[i].Data.Text));
+                card.Comments.Refresh(ct: _cancellationSource.Token).Wait();
+                var updateComments = card.Comments.Where(w => w.Reactions
+                    .FirstOrDefault(f => 
+                        f.Member.Mention == Mention && 
+                        f.Emoji.Equals(Success) ||
+                        f.Emoji.Equals(Failed)) == null).ToArray();
+
+                foreach (var comment in updateComments)
+                {
+                    UpdateComments?.Invoke(this,
+                        new CommentEventArgs(
+                            card.Id,
+                            comment.Id,
+                            comment.Creator.Id,
+                            comment.Data.Text));
+                }
             }
 
             return true;

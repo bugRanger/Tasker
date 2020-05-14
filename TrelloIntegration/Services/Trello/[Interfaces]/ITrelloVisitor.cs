@@ -19,6 +19,8 @@
 
         string Handle(UpdateCardTask task);
 
+        bool Handle(UpdateCardFieldTask task);
+
         bool Handle(AddCommentTask task);
 
         bool Handle(EmojiCommentTask task);

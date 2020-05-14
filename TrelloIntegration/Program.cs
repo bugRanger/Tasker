@@ -22,15 +22,19 @@
     using TrelloIntegration.Services.Redmine;
     using TrelloIntegration.Services.Redmine.Tasks;
 
+    using TrelloCustomField = Services.Trello.CustomField;
+    using TrelloIntegration.Common.Tasks;
+
     partial class Program
     {
         const string GITLAB_OPTIONS_FILE = "gitlabOptions.json";
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
-        const string CARDS_MAPPER_FILE = "cardsMapper.json";
-        const string LISTS_MAPPER_FILE = "listsMapper.json";
+        const string CARD_MAPPER_FILE = "cardsMapper.json";
+        const string LIST_MAPPER_FILE = "listsMapper.json";
         const string LABEL_MAPPER_FILE = "labelMapper.json";
+        const string FIELD_MAPPER_FILE = "fieldMapper.json";
 
         private static TrelloOptions _trelloOptions;
         private static TrelloService _trelloService;
@@ -57,11 +61,14 @@
         /// </summary>
         private static Mapper<string, int> _label2ProjectMapper;
 
+        private static Mapper<string, TrelloCustomField> _field2FieldMapper;
+
         static void Main(string[] args)
         {
-            _card2IssueMapper = JsonConfig.Read<Mapper<string, int>>(CARDS_MAPPER_FILE).Result;
-            _list2StatusMapper = JsonConfig.Read<Mapper<string, int>>(LISTS_MAPPER_FILE).Result;
+            _card2IssueMapper = JsonConfig.Read<Mapper<string, int>>(CARD_MAPPER_FILE).Result;
+            _list2StatusMapper = JsonConfig.Read<Mapper<string, int>>(LIST_MAPPER_FILE).Result;
             _label2ProjectMapper = JsonConfig.Read<Mapper<string, int>>(LABEL_MAPPER_FILE).Result;
+            _field2FieldMapper = JsonConfig.Read<Mapper<string, TrelloCustomField>>(FIELD_MAPPER_FILE).Result;
 
             _trelloOptions = JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE).Result;
             _gitlabOptions = JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE).Result;
@@ -98,6 +105,20 @@
                         {
                             _trelloOptions.BoardId = boardId;
 
+                            _trelloService.Enqueue(new UpdateFieldTask(
+                                boardId: boardId, 
+                                name: TrelloCustomField.WorkTime.ToString(),
+                                type: CustomFieldType.Number,
+                                id: _field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out string fieldId) ? fieldId : null,
+                                callback: fieldId =>
+                                {
+                                    //TODO Add repeat if not success.
+                                    if (!string.IsNullOrWhiteSpace(fieldId))
+                                        return;
+
+                                    _field2FieldMapper.Add(fieldId, TrelloCustomField.WorkTime);
+                                }));
+
                             _redmineService.Start();
                             //_gitlabService.Start();
                         }));
@@ -116,9 +137,10 @@
             }
             finally
             {
-                JsonConfig.Write(_card2IssueMapper, CARDS_MAPPER_FILE).Wait();
-                JsonConfig.Write(_list2StatusMapper, LISTS_MAPPER_FILE).Wait();
+                JsonConfig.Write(_card2IssueMapper, CARD_MAPPER_FILE).Wait();
+                JsonConfig.Write(_list2StatusMapper, LIST_MAPPER_FILE).Wait();
                 JsonConfig.Write(_label2ProjectMapper, LABEL_MAPPER_FILE).Wait();
+                JsonConfig.Write(_field2FieldMapper, FIELD_MAPPER_FILE).Wait();
 
                 JsonConfig.Write(_trelloOptions, TRELLO_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
@@ -148,7 +170,15 @@
                     issueId,
                     command.Hours,
                     command.Comment,
-                    result => OnCallbackCommandTask(args.CardId, args.CommentId, result)));
+                    result =>
+                    {
+                        OnCallbackCommandTask(args.CardId, args.CommentId, result);
+
+                        if (!result || !_field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out var fieldId))
+                            return;
+
+                        _trelloService.Enqueue(new UpdateCardFieldTask(fieldId: fieldId, cardId: args.CardId, value: command.Hours));
+                    }));
         }
 
         static void OnCallbackCommandTask(string cardId, string commendId, bool result)
@@ -156,9 +186,7 @@
             _trelloService.Enqueue(new EmojiCommentTask(
                 cardId: cardId,  
                 commentId: commendId,
-                emoji: result
-                    ? Emojis.WhiteCheckMark
-                    : Emojis.FaceWithSymbolsOnMouth));
+                emoji: result ? TrelloService.Success : TrelloService.Failed));
         }
 
         #region Trello
@@ -191,6 +219,7 @@
                 _trelloService.Enqueue(new EmojiCommentTask(
                     cardId: args.CardId,
                     commentId: args.CommentId,
+                    // TODO Move to trelloservice propeties.
                     emoji: result
                         ? Emojis.TimerClock
                         : Emojis.Angry));
