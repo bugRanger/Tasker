@@ -3,7 +3,7 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateIssueTask : TaskItem<RedmineService, bool>
+    class UpdateIssueTask : TaskItem<IRedmineVisitor, bool>
     {
         public int IssueId { get; }
 
@@ -15,7 +15,7 @@
             StatusId = statusId;
         }
 
-        protected override bool HandleImpl(RedmineService service)
+        protected override bool HandleImpl(IRedmineVisitor service)
         {
             return service.Handle(this);
         }

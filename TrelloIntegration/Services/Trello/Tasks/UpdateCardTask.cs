@@ -3,7 +3,7 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateCardTask : TaskItem<TrelloService, string>
+    class UpdateCardTask : TaskItem<ITrelloVisitor, string>
     {
         #region Fields
 
@@ -41,7 +41,7 @@
             Description = description;
         }
 
-        protected override string HandleImpl(TrelloService service)
+        protected override string HandleImpl(ITrelloVisitor service)
         {
             return service.Handle(this);
         }

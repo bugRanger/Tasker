@@ -22,7 +22,7 @@
         private Dictionary<int, Project> _projects;
         private Dictionary<int, Issue> _issues;
         private Dictionary<int, IssueStatus> _statuses;
-        private ITaskQueue<RedmineService> _queue;
+        private ITaskQueue<IRedmineVisitor> _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
@@ -46,7 +46,7 @@
 
             _cancellationSource = new CancellationTokenSource();
             _options = options;
-            _queue = new TaskQueue<RedmineService>(task => task.Handle(this));
+            _queue = new TaskQueue<IRedmineVisitor>(task => task.Handle(this));
             _queue.Error += (sender, error) => Error?.Invoke(this, error);
         }
 
@@ -68,9 +68,9 @@
             _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
-            Enqueue(new SyncActionTask<RedmineService>(SyncProjects));
-            Enqueue(new SyncActionTask<RedmineService>(SyncStatuses));
-            Enqueue(new SyncActionTask<RedmineService>(SyncIssues, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncProjects));
+            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncStatuses));
+            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncIssues, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -82,7 +82,7 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<RedmineService> task)
+        public void Enqueue(ITaskItem<IRedmineVisitor> task)
         {
             _queue.Enqueue(task);
         }

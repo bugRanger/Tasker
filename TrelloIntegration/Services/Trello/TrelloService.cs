@@ -24,7 +24,7 @@
         private Dictionary<string, IList> _lists;
         private Dictionary<string, ILabel> _labels;
         private Dictionary<string, ICustomFieldDefinition> _fields;
-        private ITaskQueue<TrelloService> _queue;
+        private ITaskQueue<ITrelloVisitor> _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
@@ -64,7 +64,7 @@
 
             _cancellationSource = new CancellationTokenSource();
             _options = options;
-            _queue = new TaskQueue<TrelloService>(task => task.Handle(this));
+            _queue = new TaskQueue<ITrelloVisitor>(task => task.Handle(this));
             _queue.Error += (sender, error) => Error?.Invoke(this, error);
         }
 
@@ -116,7 +116,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncActionTask<TrelloService>(SyncCards, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<ITrelloVisitor>(SyncCards, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -128,7 +128,7 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<TrelloService> task)
+        public void Enqueue(ITaskItem<ITrelloVisitor> task)
         {
             _queue.Enqueue(task);
         }

@@ -21,7 +21,7 @@
         private GitLabClient _client;
         private IGitLabOptions _options;
         private Dictionary<int, MergeRequest> _requests;
-        private ITaskQueue<GitLabService> _queue;
+        private ITaskQueue<IGitLabVisitor> _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
@@ -41,7 +41,7 @@
             _requests = new Dictionary<int, MergeRequest>();
             _cancellationSource = new CancellationTokenSource();
             _options = options;
-            _queue = new TaskQueue<GitLabService>(task => task.Handle(this));
+            _queue = new TaskQueue<IGitLabVisitor>(task => task.Handle(this));
             _queue.Error += (sender, error) => Error?.Invoke(this, error);
         }
 
@@ -62,7 +62,7 @@
             _client = _client ?? new GitLabClient(_options.Host, _options.Token);
             _queue.Start();
 
-            Enqueue(new SyncActionTask<GitLabService>(SyncMergeRequests, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<IGitLabVisitor>(SyncMergeRequests, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -74,7 +74,7 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<GitLabService> task)
+        public void Enqueue(ITaskItem<IGitLabVisitor> task)
         {
             _queue.Enqueue(task);
         }

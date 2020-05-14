@@ -3,7 +3,7 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateMergeRequestTask : TaskItem<GitLabService, bool>
+    class UpdateMergeRequestTask : TaskItem<IGitLabVisitor, bool>
     {
         public int ProjectId { get; }
 
@@ -21,7 +21,7 @@
             Title = title;
         }
 
-        protected override bool HandleImpl(GitLabService service)
+        protected override bool HandleImpl(IGitLabVisitor service)
         {
             return service.Handle(this);
         }

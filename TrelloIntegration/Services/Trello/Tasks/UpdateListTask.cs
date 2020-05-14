@@ -3,7 +3,7 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateListTask : TaskItem<TrelloService, string>
+    class UpdateListTask : TaskItem<ITrelloVisitor, string>
     {
         public string BoardId { get; }
 
@@ -18,7 +18,7 @@
             Name = name;
         }
 
-        protected override string HandleImpl(TrelloService service) 
+        protected override string HandleImpl(ITrelloVisitor service) 
         {
             return service.Handle(this);
         }

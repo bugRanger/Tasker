@@ -4,7 +4,7 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateLabelTask : TaskItem<TrelloService, string>
+    class UpdateLabelTask : TaskItem<ITrelloVisitor, string>
     {
         public string BoardId { get; }
 
@@ -22,7 +22,7 @@
             Color = color;
         }
 
-        protected override string HandleImpl(TrelloService service) 
+        protected override string HandleImpl(ITrelloVisitor service) 
         {
             return service.Handle(this);
         }

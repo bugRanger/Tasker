@@ -3,7 +3,7 @@ namespace TrelloIntegration.Services.Redmine.Tasks
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateWorkTimeTask : TaskItem<RedmineService, bool>
+    class UpdateWorkTimeTask : TaskItem<IRedmineVisitor, bool>
     {
         public int IssueId { get; }
 
@@ -19,7 +19,7 @@ namespace TrelloIntegration.Services.Redmine.Tasks
             Comments = comments;
         }
 
-        protected override bool HandleImpl(RedmineService service)
+        protected override bool HandleImpl(IRedmineVisitor service)
         {
             return service.Handle(this);
         }

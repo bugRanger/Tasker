@@ -4,7 +4,7 @@
 
     using TrelloIntegration.Common.Tasks;
 
-    class AddCommentTask : TaskItem<TrelloService, bool>
+    class AddCommentTask : TaskItem<ITrelloVisitor, bool>
     {
         public string CardId { get; }
 
@@ -16,7 +16,7 @@
             Comment = comment;
         }
 
-        protected override bool HandleImpl(TrelloService service)
+        protected override bool HandleImpl(ITrelloVisitor service)
         {
             return service.Handle(this);
         }

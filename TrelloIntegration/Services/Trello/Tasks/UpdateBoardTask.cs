@@ -3,7 +3,7 @@
     using System;
     using TrelloIntegration.Common.Tasks;
 
-    class UpdateBoardTask : TaskItem<TrelloService, string>
+    class UpdateBoardTask : TaskItem<ITrelloVisitor, string>
     {
         public string Id { get; }
 
@@ -21,7 +21,7 @@
             СlearСontents = clear;
         }
 
-        protected override string HandleImpl(TrelloService service)
+        protected override string HandleImpl(ITrelloVisitor service)
         {
             return service.Handle(this);
         }

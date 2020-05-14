@@ -5,7 +5,7 @@
 
     using Manatee.Trello;
 
-    class UpdateFieldTask : TaskItem<TrelloService, string>
+    class UpdateFieldTask : TaskItem<ITrelloVisitor, string>
     {
         public string BoardId { get; }
 
@@ -27,7 +27,7 @@
             Options = options;
         }
 
-        protected override string HandleImpl(TrelloService service) 
+        protected override string HandleImpl(ITrelloVisitor service) 
         {
             return service.Handle(this);
         }
