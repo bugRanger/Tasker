@@ -1,50 +1,8 @@
 ﻿namespace TrelloIntegration.Common.Tasks
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Threading;
-
-    class Locker
-    {
-        #region Fields
-
-        private const int ENABLED = 1;
-
-        private const int DISABLE = 0;
-
-        private int _state;
-
-        #endregion Fields
-
-        #region Constructors
-
-        public Locker()
-        {
-            _state = DISABLE;
-        }
-
-        #endregion Constructors
-
-        #region Methods
-
-
-        public bool HasEnabled()
-        {
-            return Interlocked.CompareExchange(ref _state, ENABLED, ENABLED) == ENABLED;
-        }
-
-        public bool SetEnabled()
-        {
-            return Interlocked.CompareExchange(ref _state, ENABLED, DISABLE) == DISABLE;
-        }
-
-        public bool SetDisabled()
-        {
-            return Interlocked.CompareExchange(ref _state, DISABLE, ENABLED) == ENABLED;
-        }
-
-        #endregion Methods
-    }
+    using System.Collections.Concurrent;
 
     class TaskQueue<TService> : ITaskQueue<TService>
         where TService : IServiceVisitor
@@ -53,13 +11,12 @@
 
         private const int WAIT_DEFAULT = 300;
 
+        private readonly Locker _locker;
         private readonly AutoResetEvent _syncTask;
-
-        private ConcurrentQueue<ITaskItem<TService>> _queueTask;
-
-        private Locker _locker;
-        private Action<ITaskItem<TService>> _execute;
-        private int _wait;
+        private readonly ConcurrentQueue<ITaskItem<TService>> _queueTask;
+        private readonly Action<ITaskItem<TService>> _execute;
+        private readonly ITimelineEnviroment _timeline;
+        private readonly int _wait;
 
         private Thread _thread;
 
@@ -73,11 +30,13 @@
 
         #region Constructor
 
-        public TaskQueue(Action<ITaskItem<TService>> execute, int wait = WAIT_DEFAULT)
+        public TaskQueue(Action<ITaskItem<TService>> execute, ITimelineEnviroment timeline, int wait = WAIT_DEFAULT)
         {
             _queueTask = new ConcurrentQueue<ITaskItem<TService>>();
             _syncTask = new AutoResetEvent(false);
             _locker = new Locker();
+
+            _timeline = timeline;
             _execute = execute;
             _wait = wait;
             _thread = null;
@@ -122,7 +81,7 @@
         {
             while (_locker.HasEnabled())
             {
-                var startTime = Environment.TickCount64 & Int64.MaxValue;
+                var startTime = _timeline.TickCount();
 
                 try
                 {
@@ -139,7 +98,7 @@
                     Error?.Invoke(this, ex.Message);
                 }
 
-                var endTime = Environment.TickCount64 & Int64.MaxValue;
+                var endTime = _timeline.TickCount();
                 var sleep = _wait - (endTime - startTime);
                 if (sleep > 0)
                     _syncTask.WaitOne((int)sleep);

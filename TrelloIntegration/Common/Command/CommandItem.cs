@@ -2,7 +2,7 @@
 {
     using System.Text.RegularExpressions;
 
-    public abstract class CommandItem
+    public abstract class CommandItem : ICommandItem
     {
         #region Properties
 
@@ -17,7 +17,7 @@
 
         #region Methods
 
-        internal abstract bool Reload(MatchCollection matches);
+        public abstract bool Reload(MatchCollection matches);
 
         #endregion Methods
     }
