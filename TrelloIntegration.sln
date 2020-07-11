@@ -3,7 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29519.181
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TrelloIntegration", "TrelloIntegration\TrelloIntegration.csproj", "{71E0ECFC-75E0-417A-91A2-174126FB9160}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.Redmine", "Services.Redmine\Services.Redmine.csproj", "{1190E424-B0C4-4415-ACE4-FD83F553B913}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Common", "Common\Common.csproj", "{13F96845-3025-4935-BF52-239351A6603C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.Gitlab", "Services.Gitlab\Services.Gitlab.csproj", "{D88D9693-6B7D-4146-A148-481DAF061203}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.Trello", "Services.Trello\Services.Trello.csproj", "{876358F5-B3DE-4209-9695-859076245B0B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TrelloIntegration", "TrelloIntegration\TrelloIntegration.csproj", "{F9178067-3996-4E34-9163-3F6EA94D2998}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +19,26 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{71E0ECFC-75E0-417A-91A2-174126FB9160}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{71E0ECFC-75E0-417A-91A2-174126FB9160}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{71E0ECFC-75E0-417A-91A2-174126FB9160}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{71E0ECFC-75E0-417A-91A2-174126FB9160}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1190E424-B0C4-4415-ACE4-FD83F553B913}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1190E424-B0C4-4415-ACE4-FD83F553B913}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1190E424-B0C4-4415-ACE4-FD83F553B913}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1190E424-B0C4-4415-ACE4-FD83F553B913}.Release|Any CPU.Build.0 = Release|Any CPU
+		{13F96845-3025-4935-BF52-239351A6603C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{13F96845-3025-4935-BF52-239351A6603C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{13F96845-3025-4935-BF52-239351A6603C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{13F96845-3025-4935-BF52-239351A6603C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D88D9693-6B7D-4146-A148-481DAF061203}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D88D9693-6B7D-4146-A148-481DAF061203}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D88D9693-6B7D-4146-A148-481DAF061203}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D88D9693-6B7D-4146-A148-481DAF061203}.Release|Any CPU.Build.0 = Release|Any CPU
+		{876358F5-B3DE-4209-9695-859076245B0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{876358F5-B3DE-4209-9695-859076245B0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{876358F5-B3DE-4209-9695-859076245B0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{876358F5-B3DE-4209-9695-859076245B0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9178067-3996-4E34-9163-3F6EA94D2998}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9178067-3996-4E34-9163-3F6EA94D2998}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9178067-3996-4E34-9163-3F6EA94D2998}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9178067-3996-4E34-9163-3F6EA94D2998}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

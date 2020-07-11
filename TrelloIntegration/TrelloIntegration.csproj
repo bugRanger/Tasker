@@ -6,13 +6,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="GitLabApiClient" Version="1.5.0" />
-    <PackageReference Include="Manatee.Trello" Version="4.3.0" />
-    <PackageReference Include="redmine-netcore10-api" Version="2.0.1" />
+    <ProjectReference Include="..\Common\Common.csproj" />
+    <ProjectReference Include="..\Services.Gitlab\Services.Gitlab.csproj" />
+    <ProjectReference Include="..\Services.Redmine\Services.Redmine.csproj" />
+    <ProjectReference Include="..\Services.Trello\Services.Trello.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Services\Redmine\[EventArgs]\" />
-  </ItemGroup>
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="xcopy $(SolutionDir)configs\*.json $(TargetDir) /q /y" />
+  </Target>
 
 </Project>

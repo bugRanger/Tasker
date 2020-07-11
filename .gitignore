@@ -1,3 +1,12 @@
 /.vs
 TrelloIntegration/bin
 TrelloIntegration/obj
+Services.Gitlab/bin
+Services.Gitlab/obj
+Services.Trello/bin
+Services.Trello/obj
+Services.Redmine/bin
+Services.Redmine/obj
+Common/bin
+Common/obj
+/configs

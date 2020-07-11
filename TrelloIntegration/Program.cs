@@ -7,23 +7,20 @@
     using RedmineApi.Core.Types;
     using GitLabApiClient.Models.MergeRequests.Responses;
 
-    using TrelloIntegration.Common;
-    using TrelloIntegration.Common.Command;
+    using Common;
+    using Common.Command;
 
-    using TrelloIntegration.Services;
+    using Services.Trello;
+    using Services.Trello.Tasks;
+    using Services.Trello.Commands;
 
-    using TrelloIntegration.Services.Trello;
-    using TrelloIntegration.Services.Trello.Tasks;
-    using TrelloIntegration.Services.Trello.Commands;
+    using Services.GitLab;
+    using Services.GitLab.Tasks;
 
-    using TrelloIntegration.Services.GitLab;
-    using TrelloIntegration.Services.GitLab.Tasks;
-
-    using TrelloIntegration.Services.Redmine;
-    using TrelloIntegration.Services.Redmine.Tasks;
+    using Services.Redmine;
+    using Services.Redmine.Tasks;
 
     using TrelloCustomField = Services.Trello.CustomField;
-    using TrelloIntegration.Common.Tasks;
 
     partial class Program
     {
@@ -31,6 +28,7 @@
         const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
 
+        // TODO: Добавить поддержку работы с базой данных, вместо файликов.
         const string CARD_MAPPER_FILE = "cardsMapper.json";
         const string LIST_MAPPER_FILE = "listsMapper.json";
         const string LABEL_MAPPER_FILE = "labelMapper.json";
@@ -80,20 +78,20 @@
                 _trelloCommand.Register<MergeCommand, CommentEventArgs>("merge", MergeCommandAction);
                 _trelloCommand.Register<UptimeCommand, CommentEventArgs>("uptime", UptimeCommandAction);
 
-                using (_trelloService = new TrelloService(_trelloOptions))
-                using (_gitlabService = new GitLabService(_gitlabOptions))
-                using (_redmineService = new RedmineService(_redmineOptions))
+                using (_trelloService = new TrelloService(_trelloOptions, TimelineEnviroment.Instance))
+                using (_gitlabService = new GitLabService(_gitlabOptions, TimelineEnviroment.Instance))
+                using (_redmineService = new RedmineService(_redmineOptions, TimelineEnviroment.Instance))
                 {
-                    _redmineService.Error += (s, error) => Console.WriteLine(error);
+                    _redmineService.Error += OnServiceError;
                     _redmineService.UpdateStatuses += OnRedmineService_UpdateStatuses;
                     _redmineService.UpdateIssues += OnRedmineService_UpdateIssues;
                     _redmineService.UpdateProjects += OnRedmine_UpdateProjects;
 
-                    _trelloService.Error += (s, error) => Console.WriteLine(error);
+                    _trelloService.Error += OnServiceError;
                     _trelloService.UpdateComments += OnTrelloService_UpdateComments;
                     _trelloService.UpdateStatus += OnTrelloService_UpdateStatus;
 
-                    _gitlabService.Error += (s, error) => Console.WriteLine(error);
+                    _gitlabService.Error += OnServiceError;
                     _gitlabService.UpdateRequests += OnGitlabService_UpdateRequests;
 
                     _trelloService.Start();
@@ -120,7 +118,7 @@
                                 }));
 
                             _redmineService.Start();
-                            //_gitlabService.Start();
+                            _gitlabService.Start();
                         }));
 
                     while (true)
@@ -146,6 +144,11 @@
                 JsonConfig.Write(_gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_redmineOptions, REDMINE_OPTIONS_FILE).Wait();
             }
+        }
+
+        static void OnServiceError(object sender, string error) 
+        {
+            Console.WriteLine($"{sender}: {error}");
         }
 
         static void MergeCommandAction(MergeCommand command, CommentEventArgs args)
