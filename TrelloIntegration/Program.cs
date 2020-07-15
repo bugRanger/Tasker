@@ -21,6 +21,7 @@
     using Services.Redmine.Tasks;
 
     using TrelloCustomField = Services.Trello.CustomField;
+    using System.Collections.Generic;
 
     partial class Program
     {
@@ -111,10 +112,10 @@
                                 callback: fieldId =>
                                 {
                                     //TODO Add repeat if not success.
-                                    if (!string.IsNullOrWhiteSpace(fieldId))
+                                    if (string.IsNullOrWhiteSpace(fieldId))
                                         return;
 
-                                    _field2FieldMapper.Add(fieldId, TrelloCustomField.WorkTime);
+                                    _field2FieldMapper.TryAdd(fieldId, TrelloCustomField.WorkTime);
                                 }));
 
                             _redmineService.Start();

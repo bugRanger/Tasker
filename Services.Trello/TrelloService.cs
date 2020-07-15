@@ -181,9 +181,7 @@
                 !_fields.TryGetValue(task.Id, out ICustomFieldDefinition field))
             {
                 board.CustomFields.Refresh(ct: _cancellationSource.Token).Wait();
-                field =
-                    board.CustomFields.FirstOrDefault(f => f.Id == task.Id) ??
-                    board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
+                field = board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
             }
 
             if (!string.IsNullOrWhiteSpace(field.Name) && field.Name != task.Name)
