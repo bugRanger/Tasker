@@ -13,6 +13,7 @@
     using Common.Tasks;
 
     using Services.Trello.Tasks;
+    using System.Threading.Tasks;
 
     public class TrelloService : ITrelloService, IDisposable
     {
@@ -144,21 +145,14 @@
 
         public string Handle(IUpdateBoardTask task)
         {
-            if (string.IsNullOrWhiteSpace(task.Id) || 
+            if (string.IsNullOrWhiteSpace(task.Id) ||
                 !_boards.TryGetValue(task.Id, out IBoard board))
             {
                 User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
 
-                board = 
+                board =
                     User.Boards.FirstOrDefault(f => f.Id == task.Id) ??
                     User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
-
-                if (task.СlearСontents?.Invoke(board.Id) == true)
-                {
-                    board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
-                    foreach (IList item in board.Lists)
-                        item.IsArchived = true;
-                }
             }
 
             if (board.Name != task.Name)
@@ -166,6 +160,22 @@
 
             if (board.Description != task.Description)
                 board.Description = task.Description;
+
+            // TODO: Добавить обработку/запись исключений через для каждой задачи.
+            Task.Factory.ContinueWhenAll(new[]
+            {
+                board.CustomFields.Refresh(ct: _cancellationSource.Token),
+                board.Labels.Refresh(ct: _cancellationSource.Token),
+                board.Lists.Refresh(ct: _cancellationSource.Token),
+                board.Cards.Refresh(ct: _cancellationSource.Token),
+            }, 
+            s => { }).Wait();
+
+            if (task.СlearСontents?.Invoke(board.Id) == true)
+            {
+                foreach (IList item in board.Lists)
+                    item.IsArchived = true;
+            }
 
             _boards[board.Id] = board;
             return board.Id;
@@ -180,8 +190,9 @@
             if (string.IsNullOrWhiteSpace(task.Id) ||
                 !_fields.TryGetValue(task.Id, out ICustomFieldDefinition field))
             {
-                board.CustomFields.Refresh(ct: _cancellationSource.Token).Wait();
-                field = board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
+                field =
+                    board.CustomFields.FirstOrDefault(f => f.Id == task.Id) ?? 
+                    board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
             }
 
             if (!string.IsNullOrWhiteSpace(field.Name) && field.Name != task.Name)
@@ -200,7 +211,6 @@
             if (string.IsNullOrWhiteSpace(task.Id) ||
                 !_labels.TryGetValue(task.Id, out ILabel item))
             {
-                board.Labels.Refresh(ct: _cancellationSource.Token).Wait();
                 item =
                     board.Labels.FirstOrDefault(f => f.Id == task.Id) ??
                     board.Labels.Add(task.Name, task.Color, ct: _cancellationSource.Token).Result;
@@ -219,7 +229,6 @@
             if (string.IsNullOrWhiteSpace(task.ListId) || 
                 !_lists.TryGetValue(task.ListId, out IList list))
             {
-                board.Lists.Refresh(ct: _cancellationSource.Token).Wait();
                 list = 
                     board.Lists.FirstOrDefault(f => f.Id == task.ListId) ??
                     board.Lists.Add(task.Name, ct: _cancellationSource.Token).Result;
@@ -242,7 +251,6 @@
             if (string.IsNullOrWhiteSpace(task.CardId) || 
                 !_cards.TryGetValue(task.CardId, out ICard card))
             {
-                board.Cards.Refresh(ct: _cancellationSource.Token).Wait();
                 card = 
                     board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
                     list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
@@ -259,7 +267,6 @@
 
             if (!string.IsNullOrWhiteSpace(task.LabelId) && _labels.TryGetValue(task.LabelId, out ILabel label))
             {
-                card.Labels.Refresh(ct: _cancellationSource.Token).Wait();
                 if (card.Labels.FirstOrDefault(f => f.Id == label.Id) == null)
                     card.Labels.Add(label, ct: _cancellationSource.Token).Wait();
             }
@@ -324,6 +331,7 @@
             return true;
         }
 
+        // TODO: Перейти на использование WebHooks т.к. это не оптимальный и медленый способ обработки изменений.
         public bool SyncCards()
         {
             foreach (ICard card in _cards.Values)
@@ -335,10 +343,7 @@
                 card.Refresh(ct: _cancellationSource.Token).Wait();
 
                 if (card.List.Id != listId)
-                    UpdateStatus?.Invoke(this, new ListEventArgs(
-                        cardId: card.Id, 
-                        prevId: listId, 
-                        currId: card.List.Id));
+                    UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, prevId: listId, currId: card.List.Id));
 
                 // TODO Add notification for upgrade cards.
                 //card.CustomFields.Refresh(ct: _cancellationSource.Token).Wait();
