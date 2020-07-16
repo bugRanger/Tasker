@@ -83,19 +83,19 @@
             {
                 var startTime = _timeline.TickCount();
 
-                try
+                while (_queueTask.TryDequeue(out ITaskItem<TVisitor> task))
                 {
-                    while (_queueTask.TryDequeue(out ITaskItem<TVisitor> task))
-                    {
-                        if (!_locker.HasEnabled())
-                            return;
+                    if (!_locker.HasEnabled())
+                        return;
 
+                    try
+                    {
                         _execute?.Invoke(task);
                     }
-                }
-                catch (Exception ex)
-                {
-                    Error?.Invoke(this, ex.Message);
+                    catch (Exception ex)
+                    {
+                        Error?.Invoke(this, ex.Message);
+                    }
                 }
 
                 var endTime = _timeline.TickCount();

@@ -263,7 +263,7 @@
             if (card.List?.Id != task.ListId)
                 card.List = _lists[task.ListId];
 
-            if (!string.IsNullOrWhiteSpace(card.Name) && card.Name != task.Subject)
+            if (!string.IsNullOrWhiteSpace(task.Subject) && card.Name != task.Subject)
                 card.Name = task.Subject;
 
             if (!string.IsNullOrWhiteSpace(task.Description) && card.Description != task.Description)
@@ -290,19 +290,15 @@
                         UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
                         break;
 
-                    //case Card.Fields.Comments:
-                    //    card.Comments.Refresh(ct: _cancellationSource.Token).Wait();
-                    //    var updateComments = card.Comments.Where(w => w.Reactions
-                    //        .FirstOrDefault(f =>
-                    //            f.Member.Mention == Mention &&
-                    //            f.Emoji.Equals(Success) ||
-                    //            f.Emoji.Equals(Failed)) == null).ToArray();
+                    case Card.Fields.Comments:
+                        var updateComments = card.Comments.Where(w => w.Reactions
+                            .FirstOrDefault(f => f.Member.Mention == Mention && f.Emoji.Equals(Success) || f.Emoji.Equals(Failed)) == null).ToArray();
 
-                    //    foreach (var comment in updateComments)
-                    //    {
-                    //        UpdateComments?.Invoke(this, new CommentEventArgs(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
-                    //    }
-                    //    break;
+                        foreach (var comment in updateComments)
+                        {
+                            UpdateComments?.Invoke(this, new CommentEventArgs(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
+                        }
+                        break;
 
                     default:
                         break;
