@@ -5,7 +5,17 @@
     public abstract class TaskItem<TVisitor, TResult> : ITaskItem<TVisitor>
         where TVisitor : ITaskVisitor
     {
+        #region Fields
+
+        private ITaskItem<TVisitor> _thenTask;
+
+        #endregion Fields
+
+        #region Properties
+
         protected Action<TResult> Callback { get; }
+
+        #endregion Properties
 
         protected TaskItem(Action<TResult> callback)
         {
@@ -24,7 +34,14 @@
             finally
             {
                 Callback?.Invoke(result);
+                _thenTask?.Handle(visitor);
             }
+        }
+
+        public TaskItem<TVisitor, TOutResult> Then<TOutResult>(TaskItem<TVisitor, TOutResult> task)
+        {
+            _thenTask = task;
+            return task;
         }
     }
 }

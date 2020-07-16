@@ -22,6 +22,7 @@
 
     using TrelloCustomField = Services.Trello.CustomField;
     using System.Collections.Generic;
+    using Common.Tasks;
 
     partial class Program
     {
@@ -96,31 +97,7 @@
                     _gitlabService.UpdateRequests += OnGitlabService_UpdateRequests;
 
                     _trelloService.Start();
-                    _trelloService.Enqueue(new UpdateBoardTask(
-                        id: _trelloOptions.BoardId,
-                        name: _trelloOptions.BoardName, 
-                        clear: id => id != _trelloOptions.BoardId,
-                        callback: boardId =>
-                        {
-                            _trelloOptions.BoardId = boardId;
-
-                            _trelloService.Enqueue(new UpdateFieldTask(
-                                boardId: boardId, 
-                                name: TrelloCustomField.WorkTime.ToString(),
-                                type: CustomFieldType.Number,
-                                id: _field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out string fieldId) ? fieldId : null,
-                                callback: fieldId =>
-                                {
-                                    //TODO Add repeat if not success.
-                                    if (string.IsNullOrWhiteSpace(fieldId))
-                                        return;
-
-                                    _field2FieldMapper.TryAdd(fieldId, TrelloCustomField.WorkTime);
-                                }));
-
-                            _redmineService.Start();
-                            _gitlabService.Start();
-                        }));
+                    _trelloService.Enqueue(CreateBoardTask());
 
                     while (true)
                     {
@@ -150,6 +127,37 @@
         static void OnServiceError(object sender, string error) 
         {
             Console.WriteLine($"{sender}: {error}");
+        }
+
+        static ITaskItem<ITrelloService> CreateBoardTask()
+        {
+            var createBoardTask = new UpdateBoardTask(
+                id: _trelloOptions.BoardId,
+                name: _trelloOptions.BoardName,
+                clear: id => id != _trelloOptions.BoardId,
+                callback: boardId =>
+                {
+                    _trelloOptions.BoardId = boardId;
+
+                    _redmineService.Start();
+                    _gitlabService.Start();
+                });
+
+            createBoardTask.Then(new UpdateFieldTask(
+                boardId: _trelloOptions.BoardId,
+                name: TrelloCustomField.WorkTime.ToString(),
+                type: CustomFieldType.Number,
+                id: _field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out string fieldId) ? fieldId : null,
+                callback: fieldId =>
+                {
+                    // TODO: Add repeat if not success.
+                    if (string.IsNullOrWhiteSpace(fieldId))
+                        return;
+
+                    _field2FieldMapper.TryAdd(fieldId, TrelloCustomField.WorkTime);
+                }));
+
+            return createBoardTask;
         }
 
         static void MergeCommandAction(MergeCommand command, CommentEventArgs args)
