@@ -116,6 +116,7 @@
                 List.Fields.Position;
 
             Card.DownloadedFields =
+                Card.Fields.Actions |
                 Card.Fields.List |
                 Card.Fields.Labels |
                 Card.Fields.Name |
@@ -126,7 +127,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncActionTask<ITrelloService>(SyncCards, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<ITrelloService>(SyncBoardCards, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -254,9 +255,12 @@
                 card = 
                     board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
                     list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
+
+                card.Updated += Card_Updated;
+                //_factory.Webhook(card, "https://localhost:44326/api/trello");
             }
 
-            if (card.List.Id != task.ListId)
+            if (card.List?.Id != task.ListId)
                 card.List = _lists[task.ListId];
 
             if (!string.IsNullOrWhiteSpace(card.Name) && card.Name != task.Subject)
@@ -273,6 +277,37 @@
 
             _cards[card.Id] = card;
             return card.Id;
+        }
+
+        private void Card_Updated(ICard card, IEnumerable<string> fields)
+        {
+            foreach (Card.Fields field in fields.Select(s => { return Enum.TryParse(s, out Card.Fields value) ? value : Card.Fields.IsSubscribed; }))
+            {
+                switch (field)
+                {
+                    case Card.Fields.List:
+                        card.Actions.Refresh(ct: _cancellationSource.Token).Wait();
+                        UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
+                        break;
+
+                    //case Card.Fields.Comments:
+                    //    card.Comments.Refresh(ct: _cancellationSource.Token).Wait();
+                    //    var updateComments = card.Comments.Where(w => w.Reactions
+                    //        .FirstOrDefault(f =>
+                    //            f.Member.Mention == Mention &&
+                    //            f.Emoji.Equals(Success) ||
+                    //            f.Emoji.Equals(Failed)) == null).ToArray();
+
+                    //    foreach (var comment in updateComments)
+                    //    {
+                    //        UpdateComments?.Invoke(this, new CommentEventArgs(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
+                    //    }
+                    //    break;
+
+                    default:
+                        break;
+                }
+            }
         }
 
         public bool Handle(IUpdateCardFieldTask task)
@@ -331,49 +366,12 @@
             return true;
         }
 
-        // TODO: Перейти на использование WebHooks т.к. это не оптимальный и медленый способ обработки изменений.
-        public bool SyncCards()
+        private bool SyncBoardCards()
         {
-            foreach (ICard card in _cards.Values)
-            {
-                // Not use action refresh, it is memory leak.
-                string listId = card.List.Id;
-                int commentCount = card.Comments.Count();
+            if (_boards.Count == 0)
+                return false;
 
-                card.Refresh(ct: _cancellationSource.Token).Wait();
-
-                if (card.List.Id != listId)
-                    UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, prevId: listId, currId: card.List.Id));
-
-                // TODO Add notification for upgrade cards.
-                //card.CustomFields.Refresh(ct: _cancellationSource.Token).Wait();
-                //foreach (var item in card.CustomFields)
-                //{
-                //    item.Refresh();
-                //    item.Definition.Refresh();
-                //    item.Definition.Options.Refresh();
-                //    // TODO Add support new value.
-                //    item.Definition.SetValueForCard
-                //}
-
-                card.Comments.Refresh(ct: _cancellationSource.Token).Wait();
-                var updateComments = card.Comments.Where(w => w.Reactions
-                    .FirstOrDefault(f => 
-                        f.Member.Mention == Mention && 
-                        f.Emoji.Equals(Success) ||
-                        f.Emoji.Equals(Failed)) == null).ToArray();
-
-                foreach (var comment in updateComments)
-                {
-                    UpdateComments?.Invoke(this,
-                        new CommentEventArgs(
-                            card.Id,
-                            comment.Id,
-                            comment.Creator.Id,
-                            comment.Data.Text));
-                }
-            }
-
+            Task.Factory.ContinueWhenAll(_boards.Values.Select(s => s.Cards.Refresh(ct: _cancellationSource.Token)).ToArray(), s => { }).Wait();
             return true;
         }
 

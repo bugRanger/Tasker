@@ -10,3 +10,5 @@ Services.Redmine/obj
 Common/bin
 Common/obj
 /configs
+/Services.TrelloReceiver/bin
+/Services.TrelloReceiver/obj
