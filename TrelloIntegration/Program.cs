@@ -23,6 +23,7 @@
     using TrelloCustomField = Services.Trello.CustomField;
     using System.Collections.Generic;
     using Common.Tasks;
+    using NLog;
 
     partial class Program
     {
@@ -65,6 +66,8 @@
 
         static void Main(string[] args)
         {
+            LogManager.Configuration ??= new NLog.Config.LoggingConfiguration();
+
             _card2IssueMapper = JsonConfig.Read<Mapper<string, int>>(CARD_MAPPER_FILE).Result;
             _list2StatusMapper = JsonConfig.Read<Mapper<string, int>>(LIST_MAPPER_FILE).Result;
             _label2ProjectMapper = JsonConfig.Read<Mapper<string, int>>(LABEL_MAPPER_FILE).Result;
@@ -84,16 +87,13 @@
                 using (_gitlabService = new GitLabService(_gitlabOptions, TimelineEnviroment.Instance))
                 using (_redmineService = new RedmineService(_redmineOptions, TimelineEnviroment.Instance))
                 {
-                    _redmineService.Error += OnServiceError;
                     _redmineService.UpdateStatuses += OnRedmineService_UpdateStatuses;
                     _redmineService.UpdateIssues += OnRedmineService_UpdateIssues;
                     _redmineService.UpdateProjects += OnRedmine_UpdateProjects;
 
-                    _trelloService.Error += OnServiceError;
                     _trelloService.UpdateComments += OnTrelloService_UpdateComments;
                     _trelloService.UpdateStatus += OnTrelloService_UpdateStatus;
 
-                    _gitlabService.Error += OnServiceError;
                     _gitlabService.UpdateRequests += OnGitlabService_UpdateRequests;
 
                     _trelloService.Start();
@@ -122,11 +122,6 @@
                 JsonConfig.Write(_gitlabOptions, GITLAB_OPTIONS_FILE).Wait();
                 JsonConfig.Write(_redmineOptions, REDMINE_OPTIONS_FILE).Wait();
             }
-        }
-
-        static void OnServiceError(object sender, string error) 
-        {
-            Console.WriteLine($"{sender}: {error}");
         }
 
         static ITaskItem<ITrelloService> CreateBoardTask()

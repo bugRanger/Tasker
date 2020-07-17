@@ -15,6 +15,7 @@
     using GitLabApiClient.Models.MergeRequests.Requests;
     using GitLabApiClient.Models.MergeRequests.Responses;
     using GitLabApiClient.Models.Branches.Responses;
+    using NLog;
 
     public class GitLabService : IGitLabService, IDisposable
     {
@@ -30,9 +31,9 @@
 
         #region Events
 
+        private ILogger _logger;
         public event EventHandler<MergeRequest[]> UpdateRequests;
         public event EventHandler<Branch[]> UpdateBranches;
-        public event EventHandler<string> Error;
 
         #endregion Events
 
@@ -40,11 +41,13 @@
 
         public GitLabService(IGitLabOptions options, ITimelineEnviroment timeline)
         {
+            _logger = LogManager.GetCurrentClassLogger();
+
             _requests = new Dictionary<int, MergeRequest>();
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<IGitLabService>(task => task.Handle(this), timeline);
-            _queue.Error += (sender, error) => Error?.Invoke(this, error);
+            _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`"); ;
         }
 
         public void Dispose()

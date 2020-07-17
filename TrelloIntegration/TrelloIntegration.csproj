@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NLog" Version="4.7.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Common\Common.csproj" />
     <ProjectReference Include="..\Services.Gitlab\Services.Gitlab.csproj" />
     <ProjectReference Include="..\Services.Redmine\Services.Redmine.csproj" />

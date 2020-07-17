@@ -13,12 +13,13 @@
 
     using RedmineApi.Core;
     using RedmineApi.Core.Types;
-
+    using NLog;
 
     public class RedmineService : IRedmineService, IDisposable
     {
         #region Fields
 
+        private ILogger _logger;
         private IRedmineOptions _options;
         private RedmineManager _manager;
         private Dictionary<int, Project> _projects;
@@ -34,7 +35,6 @@
         public event EventHandler<Project[]> UpdateProjects;
         public event EventHandler<Issue[]> UpdateIssues;
         public event EventHandler<IssueStatus[]> UpdateStatuses;
-        public event EventHandler<string> Error;
 
         #endregion Events
 
@@ -42,6 +42,8 @@
 
         public RedmineService(IRedmineOptions options, ITimelineEnviroment timeline)
         {
+            _logger = LogManager.GetCurrentClassLogger();
+
             _projects = new Dictionary<int, Project>();
             _issues = new Dictionary<int, Issue>();
             _statuses = new Dictionary<int, IssueStatus>();
@@ -49,7 +51,7 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<IRedmineService>(task => task.Handle(this), timeline);
-            _queue.Error += (sender, error) => Error?.Invoke(this, error);
+            _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`"); ;
         }
 
         public void Dispose()

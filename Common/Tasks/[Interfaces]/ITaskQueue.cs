@@ -5,7 +5,7 @@
     public interface ITaskQueue<TVisitor>
         where TVisitor : ITaskVisitor
     {
-        event EventHandler<string> Error;
+        event Action<ITaskItem<TVisitor>, string> Error;
 
         void Enqueue(ITaskItem<TVisitor> task);
 

@@ -14,11 +14,21 @@
 
     using Services.Trello.Tasks;
     using System.Threading.Tasks;
+    using NLog;
 
     public class TrelloService : ITrelloService, IDisposable
     {
+        #region Constants
+
+        public static Emoji Success = Emojis.WhiteCheckMark;
+
+        public static Emoji Failed = Emojis.FaceWithSymbolsOnMouth;
+
+        #endregion Constants
+
         #region Fields
 
+        private ILogger _logger;
         private IMe _user;
         private ITrelloOptions _options;
         private TrelloFactory _factory;
@@ -45,17 +55,12 @@
 
         public string Mention => User?.Mention ?? null;
 
-        public static Emoji Success = Emojis.WhiteCheckMark;
-
-        public static Emoji Failed = Emojis.FaceWithSymbolsOnMouth;
-
         #endregion Properties
 
         #region Events
 
         public event EventHandler<ListEventArgs> UpdateStatus;
         public event EventHandler<CommentEventArgs> UpdateComments;
-        public event EventHandler<string> Error;
 
         #endregion Events
 
@@ -63,6 +68,8 @@
 
         public TrelloService(ITrelloOptions options, ITimelineEnviroment timeline)
         {
+            _logger = LogManager.GetCurrentClassLogger();
+
             _boards = new Dictionary<string, IBoard>();
             _fields = new Dictionary<string, ICustomFieldDefinition>();
             _labels = new Dictionary<string, ILabel>();
@@ -72,7 +79,7 @@
             _cancellationSource = new CancellationTokenSource();
             _options = options;
             _queue = new TaskQueue<ITrelloService>(task => task.Handle(this), timeline);
-            _queue.Error += (sender, error) => Error?.Invoke(this, error);
+            _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`");
         }
 
         public void Dispose()
@@ -162,7 +169,7 @@
             if (board.Description != task.Description)
                 board.Description = task.Description;
 
-            // TODO: Добавить обработку/запись исключений через для каждой задачи.
+            // TODO: Добавить обработку/запись исключений для каждой задачи.
             Task.Factory.ContinueWhenAll(new[]
             {
                 board.CustomFields.Refresh(ct: _cancellationSource.Token),
@@ -257,7 +264,6 @@
                     list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
 
                 card.Updated += Card_Updated;
-                //_factory.Webhook(card, "https://localhost:44326/api/trello");
             }
 
             if (card.List?.Id != task.ListId)

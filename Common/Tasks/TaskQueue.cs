@@ -24,7 +24,7 @@
 
         #region Events
 
-        public event EventHandler<string> Error;
+        public event Action<ITaskItem<TVisitor>, string> Error;
 
         #endregion Events
 
@@ -94,7 +94,7 @@
                     }
                     catch (Exception ex)
                     {
-                        Error?.Invoke(this, ex.Message);
+                        Error?.Invoke(task, ex.Message);
                     }
                 }
 
