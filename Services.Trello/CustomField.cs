@@ -3,5 +3,6 @@
     public enum CustomField
     {
         WorkTime = 1,
+        MergeRequest = 2,
     }
 }

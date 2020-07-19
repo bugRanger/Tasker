@@ -2,10 +2,11 @@
 {
     using System;
     using System.Linq;
+    using System.Collections.Generic;
+    using System.Text.RegularExpressions;
 
     using Manatee.Trello;
     using RedmineApi.Core.Types;
-    using GitLabApiClient.Models.MergeRequests.Responses;
 
     using Common;
     using Common.Command;
@@ -20,10 +21,10 @@
     using Services.Redmine;
     using Services.Redmine.Tasks;
 
-    using TrelloCustomField = Services.Trello.CustomField;
-    using System.Collections.Generic;
     using Common.Tasks;
     using NLog;
+
+    using TrelloCustomField = Services.Trello.CustomField;
 
     partial class Program
     {
@@ -94,7 +95,7 @@
                     _trelloService.UpdateComments += OnTrelloService_UpdateComments;
                     _trelloService.UpdateStatus += OnTrelloService_UpdateStatus;
 
-                    _gitlabService.UpdateRequests += OnGitlabService_UpdateRequests;
+                    _gitlabService.MergeRequestsNotify += OnGitlabService_UpdateRequests;
 
                     _trelloService.Start();
                     _trelloService.Enqueue(CreateBoardTask());
@@ -124,47 +125,17 @@
             }
         }
 
-        static ITaskItem<ITrelloService> CreateBoardTask()
-        {
-            var createBoardTask = new UpdateBoardTask(
-                id: _trelloOptions.BoardId,
-                name: _trelloOptions.BoardName,
-                clear: id => id != _trelloOptions.BoardId,
-                callback: boardId =>
-                {
-                    _trelloOptions.BoardId = boardId;
-
-                    _redmineService.Start();
-                    _gitlabService.Start();
-                });
-
-            createBoardTask.Then(new UpdateFieldTask(
-                boardId: _trelloOptions.BoardId,
-                name: TrelloCustomField.WorkTime.ToString(),
-                type: CustomFieldType.Number,
-                id: _field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out string fieldId) ? fieldId : null,
-                callback: fieldId =>
-                {
-                    // TODO: Add repeat if not success.
-                    if (string.IsNullOrWhiteSpace(fieldId))
-                        return;
-
-                    _field2FieldMapper.TryAdd(fieldId, TrelloCustomField.WorkTime);
-                }));
-
-            return createBoardTask;
-        }
 
         static void MergeCommandAction(MergeCommand command, CommentEventArgs args)
         {
-            // TODO Get project id for GitLab MR.
-            _gitlabService.Enqueue(
-                new UpdateMergeRequestTask(
-                    0,
-                    command.Source,
-                    command.Target,
-                    command.Title,
-                    result => OnCallbackCommandTask(args.CardId, args.CommentId, result)));
+            // TODO: Get project id for GitLab MR.
+            //_gitlabService.Enqueue(
+            //    new UpdateMergeRequestTask(
+            //        0,//:???
+            //        command.Source,
+            //        command.Target,
+            //        command.Title,
+            //        result => OnCallbackCommandTask(args.CardId, args.CommentId, result)));
         }
 
         static void UptimeCommandAction(UptimeCommand command, CommentEventArgs args)
@@ -181,8 +152,16 @@
                     {
                         OnCallbackCommandTask(args.CardId, args.CommentId, result);
 
-                        if (!result || !_field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out var fieldId))
+                        if (!_field2FieldMapper.TryGetValue(TrelloCustomField.WorkTime, out var fieldId))
+                        {
+                            _trelloService.Enqueue(CreateCustomField(TrelloCustomField.WorkTime, CustomFieldType.Number));
                             return;
+                        }
+
+                        if (!result)
+                        {
+                            return;
+                        }
 
                         _trelloService.Enqueue(new UpdateCardFieldTask(fieldId: fieldId, cardId: args.CardId, value: command.Hours));
                     }));
@@ -191,7 +170,7 @@
         static void OnCallbackCommandTask(string cardId, string commendId, bool result)
         {
             _trelloService.Enqueue(new EmojiCommentTask(
-                cardId: cardId,  
+                cardId: cardId,
                 commentId: commendId,
                 emoji: result ? TrelloService.Success : TrelloService.Failed));
         }
@@ -205,9 +184,9 @@
                 return;
 
             _redmineService.Enqueue(new UpdateIssueTask(
-                issueId: _card2IssueMapper[args.CardId], 
+                issueId: _card2IssueMapper[args.CardId],
                 statusId: _list2StatusMapper[args.CurrListId],
-                callback: result => 
+                callback: result =>
                 {
                     if (!result)
                         _trelloService.Enqueue(new UpdateCardTask(boardId: _trelloOptions.BoardId, () => args.CardId, () => args.PrevListId));
@@ -278,9 +257,9 @@
                 string listId = _list2StatusMapper.TryGetValue(statusId, out string list) ? list : null;
                 //var position;
                 _trelloService.Enqueue(new UpdateListTask(
-                    boardId :_trelloOptions.BoardId,
+                    boardId: _trelloOptions.BoardId,
                     listId: listId,
-                    name: issueStatus.Name, 
+                    name: issueStatus.Name,
                     callback: listId =>
                     {
                         if (string.IsNullOrWhiteSpace(listId))
@@ -305,7 +284,7 @@
                         if (string.IsNullOrWhiteSpace(labelId))
                             return;
 
-                        _label2ProjectMapper.Add(labelId, project.Id); 
+                        _label2ProjectMapper.Add(labelId, project.Id);
                     }));
             }
         }
@@ -314,14 +293,66 @@
 
         #region Gitlab
 
-        static void OnGitlabService_UpdateRequests(object sender, MergeRequest[] requests)
+        static void OnGitlabService_UpdateRequests(object sender, MergeRequestNotifyEvent[] mergeRequests)
         {
-            foreach (var request in requests)
+            if (!_field2FieldMapper.TryGetValue(TrelloCustomField.MergeRequest, out var fieldId))
             {
-                // TODO Impl.
+                _trelloService.Enqueue(CreateCustomField(TrelloCustomField.MergeRequest, CustomFieldType.Text));
+                return;
+            }
+
+            foreach (var request in mergeRequests)
+            {
+                Match match = Regex.Match(request.Title, "\\[refs #([0-9]+)\\]");
+                if (!match.Success || match.Groups.Count < 2 ||
+                    !int.TryParse(match.Groups[1].Value, out int issueId) ||
+                    !_card2IssueMapper.TryGetValue(issueId, out string cardId))
+                    break;
+
+                // TODO: Не достоверное уведомление об успехе.
+                _trelloService.Enqueue(new UpdateCardFieldTask(fieldId: fieldId, cardId: cardId, value: request.Url));
+                request.Handle = true;
             }
         }
 
         #endregion Gitlab
+
+        private static TaskItem<ITrelloService, string> CreateCustomField(TrelloCustomField field, CustomFieldType type) 
+        {
+            return new UpdateFieldTask(
+                boardId: _trelloOptions.BoardId,
+                name: field.ToString(),
+                type: type,
+                id: _field2FieldMapper.TryGetValue(field, out string fieldId) ? fieldId : null,
+                callback: fieldId =>
+                {
+                    // TODO: Add repeat if not success.
+                    if (string.IsNullOrWhiteSpace(fieldId))
+                        return;
+
+                    _field2FieldMapper.TryAdd(fieldId, field);
+                });
+        }
+
+        private static ITaskItem<ITrelloService> CreateBoardTask()
+        {
+            var createBoardTask = new UpdateBoardTask(
+                id: _trelloOptions.BoardId,
+                name: _trelloOptions.BoardName,
+                clear: id => id != _trelloOptions.BoardId,
+                callback: boardId =>
+                {
+                    _trelloOptions.BoardId = boardId;
+
+                    _redmineService.Start();
+                    _gitlabService.Start();
+                });
+
+            createBoardTask
+                .Then(CreateCustomField(TrelloCustomField.WorkTime, CustomFieldType.Number))
+                .Then(CreateCustomField(TrelloCustomField.MergeRequest, CustomFieldType.Text));
+
+            return createBoardTask;
+        }
     }
 }

@@ -32,7 +32,7 @@
         #region Events
 
         private ILogger _logger;
-        public event EventHandler<MergeRequest[]> UpdateRequests;
+        public event EventHandler<MergeRequestNotifyEvent[]> MergeRequestsNotify;
         public event EventHandler<Branch[]> UpdateBranches;
 
         #endregion Events
@@ -64,10 +64,11 @@
             if (_queue.HasEnabled())
                 return;
 
-            _client = _client ?? new GitLabClient(_options.Host, _options.Token);
+            _client ??= new GitLabClient(_options.Host, _options.Token);
             _queue.Start();
 
-            Enqueue(new SyncActionTask<IGitLabService>(SyncMergeRequests, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<IGitLabService>(() => SyncMergeRequests(opt => opt.AssigneeId = _options.Sync.UserId), _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<IGitLabService>(() => SyncMergeRequests(opt => opt.AuthorId = _options.Sync.UserId), _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -93,25 +94,38 @@
             return true;
         }
 
-        private bool SyncMergeRequests() 
+        private bool SyncMergeRequests(Action<MergeRequestsQueryOptions> expression) 
         {
-            IList<MergeRequest> requests = Task.Run(() => _client.MergeRequests.GetAsync(opt =>
+            if (expression == null)
+                return false;
+
+            IList<MergeRequest> mergeRequests = Task.Run(() => _client.MergeRequests.GetAsync(expression), _cancellationSource.Token).Result;
+            List<MergeRequest> updates = mergeRequests
+                .Where(w => !_requests.ContainsKey(w.Id) || _requests[w.Id].State != w.State)
+                .ToList();
+
+            if (!updates.Any())
+                return true;
+
+            Dictionary<int, MergeRequestNotifyEvent> notifications = 
+                updates.Select(request => new MergeRequestNotifyEvent()
+                {
+                    Id = request.Id,
+                    Title = request.Title,
+                    State = request.State,
+                    Url = request.WebUrl,
+                    Handle = false,
+                })
+                .ToDictionary(k => k.Id);
+
+            MergeRequestsNotify?.Invoke(this, notifications.Values.ToArray());
+
+            updates.ForEach(item =>
             {
-                opt.AuthorId = _options.Sync.UserId;
-            }),
-            _cancellationSource.Token).Result;
+                if (notifications.TryGetValue(item.Id, out var mergeNotify) && mergeNotify.Handle)
+                    _requests[item.Id] = item;
+            });
 
-            MergeRequest[] updates = requests
-                .Where(w => !_requests.ContainsKey(w.Id) || !_requests[w.Id].Status.Equals(w.Status))
-                .ToArray();
-
-            foreach (MergeRequest request in updates)
-                _requests[request.Id] = request;
-
-            if (updates.Any())
-                UpdateRequests?.Invoke(this, updates);
-
-            // TODO Handle event.
             return true;
         }
 

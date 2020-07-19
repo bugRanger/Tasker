@@ -99,7 +99,7 @@
             TrelloAuthorization.Default.AppKey = _options.AppKey;
             TrelloAuthorization.Default.UserToken = _options.Token;
 
-            _factory = _factory ?? new TrelloFactory();
+            _factory ??= new TrelloFactory();
 
             TrelloConfiguration.EnableDeepDownloads = false;
             TrelloConfiguration.EnableConsistencyProcessing = false;
@@ -113,8 +113,7 @@
                         });
             };
 
-            Manatee.Trello.Action.DownloadedFields |=
-                Manatee.Trello.Action.Fields.Reactions;
+            Manatee.Trello.Action.DownloadedFields |= Manatee.Trello.Action.Fields.Reactions;
 
             List.DownloadedFields =
                 List.Fields.Board |
@@ -199,12 +198,9 @@
                 !_fields.TryGetValue(task.Id, out ICustomFieldDefinition field))
             {
                 field =
-                    board.CustomFields.FirstOrDefault(f => f.Id == task.Id) ?? 
+                    board.CustomFields.FirstOrDefault(f => f.Id == task.Id || f.Name == task.Name) ?? 
                     board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
             }
-
-            if (!string.IsNullOrWhiteSpace(field.Name) && field.Name != task.Name)
-                field.Name = task.Name;
 
             _fields[field.Id] = field;
             return field.Id;
@@ -263,7 +259,7 @@
                     board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
                     list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
 
-                card.Updated += Card_Updated;
+                card.Updated += OnCardUpdated;
             }
 
             if (card.List?.Id != task.ListId)
@@ -283,33 +279,6 @@
 
             _cards[card.Id] = card;
             return card.Id;
-        }
-
-        private void Card_Updated(ICard card, IEnumerable<string> fields)
-        {
-            foreach (Card.Fields field in fields.Select(s => { return Enum.TryParse(s, out Card.Fields value) ? value : Card.Fields.IsSubscribed; }))
-            {
-                switch (field)
-                {
-                    case Card.Fields.List:
-                        card.Actions.Refresh(ct: _cancellationSource.Token).Wait();
-                        UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
-                        break;
-
-                    case Card.Fields.Comments:
-                        var updateComments = card.Comments.Where(w => w.Reactions
-                            .FirstOrDefault(f => f.Member.Mention == Mention && f.Emoji.Equals(Success) || f.Emoji.Equals(Failed)) == null).ToArray();
-
-                        foreach (var comment in updateComments)
-                        {
-                            UpdateComments?.Invoke(this, new CommentEventArgs(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-            }
         }
 
         public bool Handle(IUpdateCardFieldTask task)
@@ -375,6 +344,33 @@
 
             Task.Factory.ContinueWhenAll(_boards.Values.Select(s => s.Cards.Refresh(ct: _cancellationSource.Token)).ToArray(), s => { }).Wait();
             return true;
+        }
+
+        private void OnCardUpdated(ICard card, IEnumerable<string> fields)
+        {
+            foreach (Card.Fields field in fields.Select(s => { return Enum.TryParse(s, out Card.Fields value) ? value : Card.Fields.IsSubscribed; }))
+            {
+                switch (field)
+                {
+                    case Card.Fields.List:
+                        card.Actions.Refresh(ct: _cancellationSource.Token).Wait();
+                        UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
+                        break;
+
+                    case Card.Fields.Comments:
+                        var updateComments = card.Comments.Where(w => w.Reactions
+                            .FirstOrDefault(f => f.Member.Mention == Mention && f.Emoji.Equals(Success) || f.Emoji.Equals(Failed)) == null).ToArray();
+
+                        foreach (var comment in updateComments)
+                        {
+                            UpdateComments?.Invoke(this, new CommentEventArgs(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
         }
 
         #endregion Methods
