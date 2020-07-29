@@ -1,4 +1,4 @@
-﻿namespace Common
+﻿namespace Utils
 {
     using System;
 

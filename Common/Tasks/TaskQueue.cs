@@ -4,6 +4,8 @@
     using System.Threading;
     using System.Collections.Concurrent;
 
+    using Utils;
+
     public class TaskQueue<TVisitor> : ITaskQueue<TVisitor>
         where TVisitor : ITaskVisitor
     {
@@ -48,7 +50,7 @@
 
         public void Enqueue(ITaskItem<TVisitor> task)
         {
-            if (!_locker.HasEnabled())
+            if (!_locker.IsEnabled())
                 return;
 
             _queueTask.Enqueue(task);
@@ -74,18 +76,18 @@
 
         public bool HasEnabled()
         {
-            return _locker.HasEnabled();
+            return _locker.IsEnabled();
         }
 
         private void HandleTask()
         {
-            while (_locker.HasEnabled())
+            while (_locker.IsEnabled())
             {
                 var startTime = _timeline.TickCount();
 
                 while (_queueTask.TryDequeue(out ITaskItem<TVisitor> task))
                 {
-                    if (!_locker.HasEnabled())
+                    if (!_locker.IsEnabled())
                         return;
 
                     try

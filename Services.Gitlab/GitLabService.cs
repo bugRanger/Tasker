@@ -6,7 +6,7 @@
     using System.Threading.Tasks;
     using System.Collections.Generic;
 
-    using Common;
+    using Utils;
     using Common.Tasks;
 
     using Services.GitLab.Tasks;

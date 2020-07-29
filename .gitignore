@@ -12,3 +12,5 @@ Common/obj
 /configs
 /Services.TrelloReceiver/bin
 /Services.TrelloReceiver/obj
+/Utils/bin/Debug/netcoreapp3.1
+/Utils/obj

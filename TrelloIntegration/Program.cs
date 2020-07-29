@@ -8,7 +8,7 @@
     using Manatee.Trello;
     using RedmineApi.Core.Types;
 
-    using Common;
+    using Utils;
     using Common.Command;
 
     using Services.Trello;

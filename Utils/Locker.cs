@@ -1,4 +1,4 @@
-﻿namespace Common
+﻿namespace Utils
 {
     using System.Threading;
 
@@ -26,7 +26,7 @@
         #region Methods
 
 
-        public bool HasEnabled()
+        public bool IsEnabled()
         {
             return Interlocked.CompareExchange(ref _state, ENABLED, ENABLED) == ENABLED;
         }
