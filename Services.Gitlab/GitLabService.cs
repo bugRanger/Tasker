@@ -6,16 +6,17 @@
     using System.Threading.Tasks;
     using System.Collections.Generic;
 
-    using Utils;
-    using Common.Tasks;
+    using NLog;
 
-    using Services.GitLab.Tasks;
+    using Common.Tasks;
+    using Framework.Common;
 
     using GitLabApiClient;
     using GitLabApiClient.Models.MergeRequests.Requests;
     using GitLabApiClient.Models.MergeRequests.Responses;
     using GitLabApiClient.Models.Branches.Responses;
-    using NLog;
+
+    using Tasks;
 
     public class GitLabService : IGitLabService, IDisposable
     {

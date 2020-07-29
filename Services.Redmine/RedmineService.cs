@@ -7,13 +7,15 @@
     using System.Collections.Generic;
     using System.Collections.Specialized;
 
-    using Utils;
+    using NLog;
+
     using Common.Tasks;
-    using Services.Redmine.Tasks;
+    using Framework.Common;
 
     using RedmineApi.Core;
     using RedmineApi.Core.Types;
-    using NLog;
+
+    using Tasks;
 
     public class RedmineService : IRedmineService, IDisposable
     {

@@ -5,11 +5,14 @@
     using System.Collections.Generic;
     using System.Text.RegularExpressions;
 
+    using NLog;
+
+    using Common.Tasks;
+    using Common.Command;
+    using Framework.Common;
+
     using Manatee.Trello;
     using RedmineApi.Core.Types;
-
-    using Utils;
-    using Common.Command;
 
     using Services.Trello;
     using Services.Trello.Tasks;
@@ -21,8 +24,6 @@
     using Services.Redmine;
     using Services.Redmine.Tasks;
 
-    using Common.Tasks;
-    using NLog;
 
     using TrelloCustomField = Services.Trello.CustomField;
 

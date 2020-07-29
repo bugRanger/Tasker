@@ -4,7 +4,7 @@
     using System.Threading;
     using System.Collections.Concurrent;
 
-    using Utils;
+    using Framework.Common;
 
     public class TaskQueue<TVisitor> : ITaskQueue<TVisitor>
         where TVisitor : ITaskVisitor

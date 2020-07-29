@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Utils\Utils.csproj" />
+    <PackageReference Include="Framework" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

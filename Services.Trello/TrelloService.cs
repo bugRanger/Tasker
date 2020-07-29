@@ -5,16 +5,17 @@
     using System.Net;
     using System.Net.Http;
     using System.Threading;
+    using System.Threading.Tasks;
     using System.Collections.Generic;
+
+    using NLog;
+
+    using Common.Tasks;
+    using Framework.Common;
 
     using Manatee.Trello;
 
-    using Utils;
-    using Common.Tasks;
-
-    using Services.Trello.Tasks;
-    using System.Threading.Tasks;
-    using NLog;
+    using Tasks;
 
     public class TrelloService : ITrelloService, IDisposable
     {
