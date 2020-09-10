@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.Gitlab", "Services
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.Trello", "Services.Trello\Services.Trello.csproj", "{876358F5-B3DE-4209-9695-859076245B0B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tasker", "TrelloIntegration\Tasker.csproj", "{F9178067-3996-4E34-9163-3F6EA94D2998}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tasker", "Tasker\Tasker.csproj", "{F9178067-3996-4E34-9163-3F6EA94D2998}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
