@@ -1,6 +1,6 @@
 /.vs
-TrelloIntegration/bin
-TrelloIntegration/obj
+Tasker/bin
+Tasker/obj
 Services.Gitlab/bin
 Services.Gitlab/obj
 Services.Trello/bin
