@@ -4,25 +4,25 @@
 
     using Common.Tasks;
 
-    public class UpdateMergeRequestTask : TaskItem<IGitLabService, bool>, IUpdateMergeRequestTask
+    public class UpdateMergeRequestTask : TaskItem<IGitLabService, int>, IUpdateMergeRequestTask
     {
+        public int? Id { get; }
+
         public int ProjectId { get; }
 
         public string SourceBranch { get; }
 
         public string TargetBranch { get; }
 
-        public string Title { get; }
-
-        public UpdateMergeRequestTask(int projectId, string sourceBranch, string targetBranch, string title, Action<bool> callback = null) : base(callback)
+        public UpdateMergeRequestTask(int projectId, string sourceBranch, string targetBranch, int? id = null, Action<int> callback = null) : base(callback)
         {
+            Id = id;
             ProjectId = projectId;
             SourceBranch = sourceBranch;
             TargetBranch = targetBranch;
-            Title = title;
         }
 
-        protected override bool HandleImpl(IGitLabService service)
+        protected override int HandleImpl(IGitLabService service)
         {
             return service.Handle(this);
         }

@@ -11,5 +11,11 @@
         public int Interval { get; set; }
 
         public int UserId { get; set; }
+
+        public int AssignedId { get; set; }
+
+        public int ProjectId { get; set; }
+
+        public string SearchBranches { get; set; }
     }
 }

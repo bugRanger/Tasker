@@ -7,7 +7,7 @@
     {
         #region Methods
 
-        bool Handle(IUpdateMergeRequestTask task);
+        int Handle(IUpdateMergeRequestTask task);
 
         #endregion Methods
     }

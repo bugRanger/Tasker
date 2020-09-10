@@ -2,7 +2,7 @@
 {
     using GitLabApiClient.Models.MergeRequests.Responses;
 
-    public class MergeRequestNotifyEvent
+    public class MergeRequestEventArgs
     {
         public int Id { get; internal set; }
 
