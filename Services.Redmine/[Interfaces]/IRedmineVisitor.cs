@@ -8,6 +8,6 @@
 
         bool Handle(IUpdateWorkTimeTask task);
 
-        bool Handle(IUpdateIssueTask task);
+        bool Handle(IUpdateIssueStatusTask task);
     }
 }

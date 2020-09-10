@@ -102,7 +102,10 @@
 
             IList<MergeRequest> mergeRequests = Task.Run(() => _client.MergeRequests.GetAsync(expression), _cancellationSource.Token).Result;
             List<MergeRequest> updates = mergeRequests
-                .Where(w => !_requests.ContainsKey(w.Id) || _requests[w.Id].State != w.State)
+                .Where(w => 
+                    !_requests.TryGetValue(w.Id, out var req) 
+                    || req.State != w.State 
+                    || req.WorkInProgress != w.WorkInProgress)
                 .ToList();
 
             if (!updates.Any())
@@ -115,6 +118,7 @@
                     Title = request.Title,
                     State = request.State,
                     Url = request.WebUrl,
+                    WorkInProgress = request.WorkInProgress,
                     Handle = false,
                 })
                 .ToDictionary(k => k.Id);

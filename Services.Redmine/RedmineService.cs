@@ -19,6 +19,23 @@
 
     public class RedmineService : IRedmineService, IDisposable
     {
+        #region Classes
+
+        public class QueueItem<T>
+        {
+            public T Current { get; }
+
+            public T Next { get; }
+
+            public QueueItem(T current, T next = default(T)) 
+            {
+                Current = current;
+                Next = next;
+            }
+        }
+
+        #endregion Classes
+
         #region Fields
 
         private ILogger _logger;
@@ -26,7 +43,7 @@
         private RedmineManager _manager;
         private Dictionary<int, Project> _projects;
         private Dictionary<int, Issue> _issues;
-        private Dictionary<int, IssueStatus> _statuses;
+        private Dictionary<int, QueueItem<IssueStatus>> _statuses;
         private ITaskQueue<IRedmineService> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -48,7 +65,7 @@
 
             _projects = new Dictionary<int, Project>();
             _issues = new Dictionary<int, Issue>();
-            _statuses = new Dictionary<int, IssueStatus>();
+            _statuses = new Dictionary<int, QueueItem<IssueStatus>>();
 
             _cancellationSource = new CancellationTokenSource();
             _options = options;
@@ -118,12 +135,24 @@
             return true;
         }
 
-        public bool Handle(IUpdateIssueTask task)
+        public bool Handle(IUpdateIssueStatusTask task)
         {
             Issue issue = Task.Run(() => _manager.Get<Issue>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
 
+            var statusId = task.StatusId;
+            // TODO: Продумать как лучше назначать "следующий" статус.
+            if (statusId == -1)
+            {
+                if (!_statuses.TryGetValue(issue.Status.Id, out var status) || status.Next == null)
+                {
+                    return false;
+                }
+
+                statusId = status.Next.Id;
+            }
+
             // TODO Add script for redmine actions on change status.
-            issue.Status = new IssueStatus() { Id = task.StatusId };
+            issue.Status = new IssueStatus() { Id = statusId };
 
             if (issue.EstimatedHours == null)
                 issue.EstimatedHours = _options.EstimatedHoursABS;
@@ -170,8 +199,10 @@
         {
             IssueStatus[] updates = GetListAll<IssueStatus>(status => !_statuses.ContainsKey(status.Id) || !_statuses[status.Id].Equals(status));
 
-            foreach (IssueStatus item in updates)
-                _statuses[item.Id] = item;
+            for (int i = 0; i < updates.Length; i++)
+            {
+                _statuses[updates[i].Id] = new QueueItem<IssueStatus>(updates[i], i < updates.Length - 1 ? updates[i + 1] : null);
+            }
 
             if (updates.Any())
                 UpdateStatuses?.Invoke(this, updates.ToArray());

@@ -184,7 +184,7 @@
                 !_list2StatusMapper.ContainsKey(args.CurrListId))
                 return;
 
-            _redmineService.Enqueue(new UpdateIssueTask(
+            _redmineService.Enqueue(new UpdateIssueStatusTask(
                 issueId: _card2IssueMapper[args.CardId],
                 statusId: _list2StatusMapper[args.CurrListId],
                 callback: result =>
@@ -310,8 +310,10 @@
                     !_card2IssueMapper.TryGetValue(issueId, out string cardId))
                     break;
 
-                // TODO: Не достоверное уведомление об успехе.
                 _trelloService.Enqueue(new UpdateCardFieldTask(fieldId: fieldId, cardId: cardId, value: request.Url));
+                // TODO: Продумать как лучше назначать "следующий" статус.
+                _redmineService.Enqueue(new UpdateIssueStatusTask(issueId, -1));
+
                 request.Handle = true;
             }
         }

@@ -2,14 +2,14 @@
 {
     using Common.Tasks;
 
-    public interface IUpdateIssueTask : ITaskItem<IRedmineService>
+    public interface IUpdateIssueStatusTask : ITaskItem<IRedmineService>
     {
         #region Properties
 
         int IssueId { get; }
 
         int StatusId { get; }
-
+                
         #endregion Properties
     }
 }

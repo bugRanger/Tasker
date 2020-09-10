@@ -10,6 +10,7 @@
 
         public string CardId { get; }
 
+        // TODO: Постараться уйти от объекта, разделив задачи по типу поля. 
         public object Value { get; }
 
         public UpdateCardFieldTask(string fieldId, string cardId, object value, Action<bool> callback = null) : base(callback)

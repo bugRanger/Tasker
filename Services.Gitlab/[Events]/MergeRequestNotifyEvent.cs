@@ -12,6 +12,8 @@
 
         public MergeRequestState State { get; internal set; }
 
+        public bool WorkInProgress { get; internal set; }
+
         public bool Handle { get; set; }
     }
 }
