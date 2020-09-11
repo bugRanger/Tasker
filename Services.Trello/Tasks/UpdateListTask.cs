@@ -4,7 +4,7 @@
 
     using Common.Tasks;
 
-    public class UpdateListTask : TaskItem<ITrelloService, string>, IUpdateListTask
+    public class UpdateListTask : TaskItem<ITrelloVisitor, string>, IUpdateListTask
     {
         public string BoardId { get; }
 
@@ -19,9 +19,9 @@
             Name = name;
         }
 
-        protected override string HandleImpl(ITrelloService service)
+        protected override string HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

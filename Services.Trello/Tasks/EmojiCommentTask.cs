@@ -5,7 +5,7 @@
     using Manatee.Trello;
     using Common.Tasks;
 
-    public class EmojiCommentTask : TaskItem<ITrelloService, bool>, IEmojiCommentTask
+    public class EmojiCommentTask : TaskItem<ITrelloVisitor, bool>, IEmojiCommentTask
     {
         public string CardId { get; }
 
@@ -20,9 +20,9 @@
             Emoji = emoji;
         }
 
-        protected override bool HandleImpl(ITrelloService service)
+        protected override bool HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

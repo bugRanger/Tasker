@@ -1,10 +1,10 @@
 ﻿namespace Services.Trello
 {
-    public class BroadEventArgs 
+    public class Broad
     {
         public string BroadId { get; }
 
-        public BroadEventArgs(string broadId)
+        public Broad(string broadId)
         {
             BroadId = broadId;
         }

@@ -3,7 +3,7 @@
     using System;
     using Common.Tasks;
 
-    public class UpdateBoardTask : TaskItem<ITrelloService, string>, IUpdateBoardTask
+    public class UpdateBoardTask : TaskItem<ITrelloVisitor, string>, IUpdateBoardTask
     {
         public string Id { get; }
 
@@ -21,9 +21,9 @@
             СlearСontents = clear;
         }
 
-        protected override string HandleImpl(ITrelloService service)
+        protected override string HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

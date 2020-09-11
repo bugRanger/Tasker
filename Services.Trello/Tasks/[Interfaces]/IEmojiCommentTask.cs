@@ -4,10 +4,12 @@
 
     using Manatee.Trello;
 
-    public interface IEmojiCommentTask : ITaskItem<ITrelloService>
+    public interface IEmojiCommentTask : ITaskItem<ITrelloVisitor>
     {
         string CardId { get; }
+
         string CommentId { get; }
+
         Emoji Emoji { get; }
     }
 }

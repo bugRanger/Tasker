@@ -4,7 +4,7 @@
 
     using Common.Tasks;
 
-    public class UpdateMergeRequestTask : TaskItem<IGitLabService, int>, IUpdateMergeRequestTask
+    public class UpdateMergeRequestTask : TaskItem<IGitLabVisitor, int>, IUpdateMergeRequestTask
     {
         public int? Id { get; }
 
@@ -22,9 +22,9 @@
             TargetBranch = targetBranch;
         }
 
-        protected override int HandleImpl(IGitLabService service)
+        protected override int HandleImpl(IGitLabVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

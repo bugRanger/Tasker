@@ -6,7 +6,7 @@
 
     using Common.Tasks;
 
-    public class UpdateLabelTask : TaskItem<ITrelloService, string>, IUpdateLabelTask
+    public class UpdateLabelTask : TaskItem<ITrelloVisitor, string>, IUpdateLabelTask
     {
         public string BoardId { get; }
 
@@ -24,9 +24,9 @@
             Color = color;
         }
 
-        protected override string HandleImpl(ITrelloService service)
+        protected override string HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

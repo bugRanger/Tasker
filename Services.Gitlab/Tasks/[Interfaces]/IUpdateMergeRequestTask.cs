@@ -2,7 +2,7 @@
 {
     using Common.Tasks;
 
-    public interface IUpdateMergeRequestTask : ITaskItem<IGitLabService>
+    public interface IUpdateMergeRequestTask : ITaskItem<IGitLabVisitor>
     {
         #region Properties
 

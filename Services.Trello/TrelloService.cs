@@ -17,7 +17,7 @@
 
     using Tasks;
 
-    public class TrelloService : ITrelloService, IDisposable
+    public class TrelloService : ITrelloService, ITrelloVisitor, IDisposable
     {
         #region Constants
 
@@ -32,13 +32,14 @@
         private ILogger _logger;
         private IMe _user;
         private ITrelloOptions _options;
+        private ITrelloStrategy _strategy;
         private TrelloFactory _factory;
         private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
         private Dictionary<string, IList> _lists;
         private Dictionary<string, ILabel> _labels;
         private Dictionary<string, ICustomFieldDefinition> _fields;
-        private ITaskQueue<ITrelloService> _queue;
+        private ITaskQueue<ITrelloVisitor> _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
@@ -56,20 +57,19 @@
 
         public string Mention => User?.Mention ?? null;
 
+        public ITrelloOptions Options => _options;
+
         #endregion Properties
-
-        #region Events
-
-        public event EventHandler<ListEventArgs> UpdateStatus;
-        public event EventHandler<CommentEventArgs> UpdateComments;
-
-        #endregion Events
 
         #region Constructors
 
-        public TrelloService(ITrelloOptions options, ITimelineEnviroment timeline)
+        public TrelloService(ITrelloStrategy strategy, ITrelloOptions options, ITimelineEnviroment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
+
+            _options = options;
+            _strategy = strategy;
+            _strategy.Register(this);
 
             _boards = new Dictionary<string, IBoard>();
             _fields = new Dictionary<string, ICustomFieldDefinition>();
@@ -78,8 +78,7 @@
             _cards = new Dictionary<string, ICard>();
 
             _cancellationSource = new CancellationTokenSource();
-            _options = options;
-            _queue = new TaskQueue<ITrelloService>(task => task.Handle(this), timeline);
+            _queue = new TaskQueue<ITrelloVisitor>(task => task.Handle(this), timeline);
             _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`");
         }
 
@@ -116,11 +115,11 @@
 
             Manatee.Trello.Action.DownloadedFields |= Manatee.Trello.Action.Fields.Reactions;
 
-            List.DownloadedFields =
-                List.Fields.Board |
-                List.Fields.Name |
-                List.Fields.IsClosed |
-                List.Fields.Position;
+            Manatee.Trello.List.DownloadedFields =
+                Manatee.Trello.List.Fields.Board |
+                Manatee.Trello.List.Fields.Name |
+                Manatee.Trello.List.Fields.IsClosed |
+                Manatee.Trello.List.Fields.Position;
 
             Card.DownloadedFields =
                 Card.Fields.Actions |
@@ -134,7 +133,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncActionTask<ITrelloService>(SyncBoardCards, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<ITrelloVisitor>(SyncBoardCards, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -146,7 +145,7 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<ITrelloService> task)
+        public void Enqueue(ITaskItem<ITrelloVisitor> task)
         {
             _queue.Enqueue(task);
         }
@@ -355,7 +354,7 @@
                 {
                     case Card.Fields.List:
                         card.Actions.Refresh(ct: _cancellationSource.Token).Wait();
-                        UpdateStatus?.Invoke(this, new ListEventArgs(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
+                        _strategy.UpdateList(new BoardList(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
                         break;
 
                     case Card.Fields.Comments:
@@ -364,7 +363,7 @@
 
                         foreach (var comment in updateComments)
                         {
-                            UpdateComments?.Invoke(this, new CommentEventArgs(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
+                            _strategy.UpdateComment(new CardComment(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
                         }
                         break;
 

@@ -2,6 +2,8 @@
 {
     public class TrelloOptions : ITrelloOptions, ITrelloSync
     {
+        #region Properties
+
         public string AppKey { get; set; }
 
         public string Token { get; set; }
@@ -13,5 +15,7 @@
         ITrelloSync ITrelloOptions.Sync => this;
 
         public int Interval { get; set; }
+
+        #endregion Properties
     }
 }

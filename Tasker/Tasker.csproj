@@ -17,8 +17,4 @@
     <ProjectReference Include="..\Services.Trello\Services.Trello.csproj" />
   </ItemGroup>
 
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="xcopy $(SolutionDir)configs\*.json $(TargetDir) /q /y" />
-  </Target>
-
 </Project>

@@ -26,7 +26,7 @@
             _queue = queue;
         }
 
-        protected override bool HandleImpl(T service)
+        protected override bool HandleImpl(T visitor)
         {
             try
             {

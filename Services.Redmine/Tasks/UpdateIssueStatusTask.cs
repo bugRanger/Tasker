@@ -3,7 +3,7 @@
     using System;
     using Common.Tasks;
 
-    public class UpdateIssueStatusTask : TaskItem<IRedmineService, bool>, IUpdateIssueStatusTask
+    public class UpdateIssueStatusTask : TaskItem<IRedmineVisitor, bool>, IUpdateIssueStatusTask
     {
         #region Properties
 
@@ -25,9 +25,9 @@
 
         #region Methods
 
-        protected override bool HandleImpl(IRedmineService service)
+        protected override bool HandleImpl(IRedmineVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
 
         #endregion Methods

@@ -2,7 +2,7 @@
 {
     using System;
 
-    public class BranchesEventArgs
+    public class Branch
     {
         #region Properties
 
@@ -14,7 +14,7 @@
 
         #region Constructors
 
-        public BranchesEventArgs(string name, string title) 
+        public Branch(string name, string title) 
         {
             Name = name;
             Title = title;

@@ -1,13 +1,16 @@
 ﻿namespace Services.Trello
 {
-    public class ListEventArgs : CardEventArgs
+    public class BoardList
     {
+        public string CardId { get; }
+
         public string PrevListId { get; }
 
         public string CurrListId { get; }
 
-        public ListEventArgs(string cardId, string prevId, string currId) : base(cardId)
+        public BoardList(string cardId, string prevId, string currId)
         {
+            CardId = cardId;
             PrevListId = prevId;
             CurrListId = currId;
         }

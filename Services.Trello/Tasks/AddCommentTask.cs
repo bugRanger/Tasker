@@ -4,7 +4,7 @@
 
     using Common.Tasks;
 
-    public class AddCommentTask : TaskItem<ITrelloService, bool>, IAddCommentTask
+    public class AddCommentTask : TaskItem<ITrelloVisitor, bool>, IAddCommentTask
     {
         public string CardId { get; }
 
@@ -16,9 +16,9 @@
             Comment = comment;
         }
 
-        protected override bool HandleImpl(ITrelloService service)
+        protected override bool HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

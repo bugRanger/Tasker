@@ -2,10 +2,12 @@
 {
     using Common.Tasks;
 
-    public interface IUpdateCardFieldTask : ITaskItem<ITrelloService>
+    public interface IUpdateCardFieldTask : ITaskItem<ITrelloVisitor>
     {
         string CardId { get; }
+
         string FieldId { get; }
+
         object Value { get; }
     }
 }

@@ -2,9 +2,10 @@
 {
     using Common.Tasks;
 
-    public interface IAddCommentTask : ITaskItem<ITrelloService>
+    public interface IAddCommentTask : ITaskItem<ITrelloVisitor>
     {
         string CardId { get; }
+
         string Comment { get; }
     }
 }

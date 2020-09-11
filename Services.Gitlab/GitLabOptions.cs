@@ -1,7 +1,11 @@
-﻿namespace Services.GitLab
+﻿using Framework.Common;
+
+namespace Services.GitLab
 {
     public class GitLabOptions : IGitLabOptions, IGitLabSync
     {
+        #region Properties
+
         public string Host { get; set; }
 
         public string Token { get; set; }
@@ -17,5 +21,7 @@
         public int ProjectId { get; set; }
 
         public string SearchBranches { get; set; }
+
+        #endregion Properties
     }
 }

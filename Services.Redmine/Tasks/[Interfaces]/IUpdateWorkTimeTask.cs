@@ -2,7 +2,7 @@
 {
     using Common.Tasks;
 
-    public interface IUpdateWorkTimeTask : ITaskItem<IRedmineService>
+    public interface IUpdateWorkTimeTask : ITaskItem<IRedmineVisitor>
     {
         #region Properties
 

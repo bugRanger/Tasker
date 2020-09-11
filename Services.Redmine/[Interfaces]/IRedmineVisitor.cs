@@ -1,9 +1,9 @@
 ﻿namespace Services.Redmine
 {
     using Common.Tasks;
-    using Services.Redmine.Tasks;
+    using Tasks;
 
-    public interface IRedmineService : ITaskVisitor
+    public interface IRedmineVisitor : ITaskVisitor
     {
 
         bool Handle(IUpdateWorkTimeTask task);

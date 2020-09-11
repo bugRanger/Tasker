@@ -6,7 +6,7 @@
 
     using Common.Tasks;
 
-    public class UpdateFieldTask : TaskItem<ITrelloService, string>, IUpdateFieldTask
+    public class UpdateFieldTask : TaskItem<ITrelloVisitor, string>, IUpdateFieldTask
     {
         public string BoardId { get; }
 
@@ -28,9 +28,9 @@
             Options = options;
         }
 
-        protected override string HandleImpl(ITrelloService service)
+        protected override string HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

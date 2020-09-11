@@ -4,11 +4,14 @@
 
     using Manatee.Trello;
 
-    public interface IUpdateLabelTask : ITaskItem<ITrelloService>
+    public interface IUpdateLabelTask : ITaskItem<ITrelloVisitor>
     {
-        string BoardId { get; }
-        LabelColor? Color { get; }
         string Id { get; }
+
         string Name { get; }
+
+        string BoardId { get; }
+
+        LabelColor? Color { get; }
     }
 }

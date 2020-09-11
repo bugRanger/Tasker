@@ -17,7 +17,11 @@
 
     using Tasks;
 
-    public class RedmineService : IRedmineService, IDisposable
+    using ProjectRM = RedmineApi.Core.Types.Project;
+    using IssueRM = RedmineApi.Core.Types.Issue;
+    using IssueStatusRM = RedmineApi.Core.Types.IssueStatus;
+
+    public class RedmineService : IRedmineService, IRedmineVisitor, IDisposable
     {
         #region Classes
 
@@ -39,37 +43,39 @@
         #region Fields
 
         private ILogger _logger;
+        private IRedmineStrategy _strategy;
         private IRedmineOptions _options;
         private RedmineManager _manager;
-        private Dictionary<int, Project> _projects;
-        private Dictionary<int, Issue> _issues;
-        private Dictionary<int, QueueItem<IssueStatus>> _statuses;
-        private ITaskQueue<IRedmineService> _queue;
+        private Dictionary<int, ProjectRM> _projects;
+        private Dictionary<int, IssueRM> _issues;
+        private Dictionary<int, QueueItem<IssueStatusRM>> _statuses;
+        private ITaskQueue<IRedmineVisitor> _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
 
-        #region Events
+        #region Properties
 
-        public event EventHandler<Project[]> UpdateProjects;
-        public event EventHandler<Issue[]> UpdateIssues;
-        public event EventHandler<IssueStatus[]> UpdateStatuses;
+        public IRedmineOptions Options => _options;
 
-        #endregion Events
+        #endregion Properties
 
         #region Constructors
 
-        public RedmineService(IRedmineOptions options, ITimelineEnviroment timeline)
+        public RedmineService(IRedmineStrategy strategy, IRedmineOptions options, ITimelineEnviroment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
-            _projects = new Dictionary<int, Project>();
-            _issues = new Dictionary<int, Issue>();
-            _statuses = new Dictionary<int, QueueItem<IssueStatus>>();
+            _options = options;
+            _strategy = strategy;
+            _strategy.Register(this);
+
+            _projects = new Dictionary<int, ProjectRM>();
+            _issues = new Dictionary<int, IssueRM>();
+            _statuses = new Dictionary<int, QueueItem<IssueStatusRM>>();
 
             _cancellationSource = new CancellationTokenSource();
-            _options = options;
-            _queue = new TaskQueue<IRedmineService>(task => task.Handle(this), timeline);
+            _queue = new TaskQueue<IRedmineVisitor>(task => task.Handle(this), timeline);
             _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`"); ;
         }
 
@@ -91,9 +97,9 @@
             _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
-            Enqueue(new SyncActionTask<IRedmineService>(SyncProjects));
-            Enqueue(new SyncActionTask<IRedmineService>(SyncStatuses));
-            Enqueue(new SyncActionTask<IRedmineService>(SyncIssues, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncProjects));
+            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncStatuses));
+            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncIssues, _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -105,14 +111,14 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<IRedmineService> task)
+        public void Enqueue(ITaskItem<IRedmineVisitor> task)
         {
             _queue.Enqueue(task);
         }
 
         public bool Handle(IUpdateWorkTimeTask task)
         {
-            if (!_issues.ContainsKey(task.IssueId))
+            if (!_issues.TryGetValue(task.IssueId, out var issue))
                 return false;
 
             var hours = 
@@ -125,8 +131,8 @@
 
             Task.Run(() => _manager.Create(new TimeEntry()
             {
-                Issue = new IdentifiableName() { Id = _issues[task.IssueId].Id },
-                Project = _issues[task.IssueId].Project,
+                Issue = new IdentifiableName() { Id = issue.Id },
+                Project = new IdentifiableName() { Id = issue.Project.Id },
                 Hours = hours,
                 Comments = task.Comments,
             }),
@@ -137,7 +143,7 @@
 
         public bool Handle(IUpdateIssueStatusTask task)
         {
-            Issue issue = Task.Run(() => _manager.Get<Issue>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
+            IssueRM issue = Task.Run(() => _manager.Get<IssueRM>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
 
             var statusId = task.StatusId;
             // TODO: Продумать как лучше назначать "следующий" статус.
@@ -152,7 +158,7 @@
             }
 
             // TODO Add script for redmine actions on change status.
-            issue.Status = new IssueStatus() { Id = statusId };
+            issue.Status = new IssueStatusRM() { Id = statusId };
 
             if (issue.EstimatedHours == null)
                 issue.EstimatedHours = _options.EstimatedHoursABS;
@@ -184,41 +190,41 @@
 
         private bool SyncIssues()
         {
-            Issue[] updates = GetListAll<Issue>(issue => !_issues.ContainsKey(issue.Id) || !_issues[issue.Id].Status.Equals(issue.Status));
+            IssueRM[] updates = GetListAll<IssueRM>(issue => !_issues.ContainsKey(issue.Id) || !_issues[issue.Id].Status.Equals(issue.Status));
 
-            foreach (Issue issue in updates)
+            foreach (IssueRM issue in updates)
                 _issues[issue.Id] = issue;
 
             if (updates.Any())
-                UpdateIssues?.Invoke(this, updates);
+                _strategy.UpdateIssues(updates.Select(s => new Issue(s)).ToArray());
 
             return true;
         }
 
         private bool SyncStatuses()
         {
-            IssueStatus[] updates = GetListAll<IssueStatus>(status => !_statuses.ContainsKey(status.Id) || !_statuses[status.Id].Equals(status));
+            IssueStatusRM[] updates = GetListAll<IssueStatusRM>(status => !_statuses.ContainsKey(status.Id) || !_statuses[status.Id].Equals(status));
 
             for (int i = 0; i < updates.Length; i++)
             {
-                _statuses[updates[i].Id] = new QueueItem<IssueStatus>(updates[i], i < updates.Length - 1 ? updates[i + 1] : null);
+                _statuses[updates[i].Id] = new QueueItem<IssueStatusRM>(updates[i], i < updates.Length - 1 ? updates[i + 1] : null);
             }
 
             if (updates.Any())
-                UpdateStatuses?.Invoke(this, updates.ToArray());
+                _strategy.UpdateStatuses(updates.Select(s => new IssueStatus(s)).ToArray());
 
             return true;
         }
 
         private bool SyncProjects()
         {
-            Project[] updates = GetListAll<Project>(project => !_projects.ContainsKey(project.Id) || !_projects[project.Id].Equals(project));
+            ProjectRM[] updates = GetListAll<ProjectRM>(project => !_projects.ContainsKey(project.Id) || !_projects[project.Id].Equals(project));
 
-            foreach (Project item in updates)
+            foreach (ProjectRM item in updates)
                 _projects[item.Id] = item;
 
             if (updates.Any())
-                UpdateProjects?.Invoke(this, updates.ToArray());
+                _strategy.UpdateProjects(updates.Select(s => new Project(s)).ToArray());
 
             return true;
         }

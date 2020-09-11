@@ -4,7 +4,7 @@
 
     using Common.Tasks;
 
-    public class UpdateCardFieldTask : TaskItem<ITrelloService, bool>, IUpdateCardFieldTask
+    public class UpdateCardFieldTask : TaskItem<ITrelloVisitor, bool>, IUpdateCardFieldTask
     {
         public string FieldId { get; }
 
@@ -20,9 +20,9 @@
             Value = value;
         }
 
-        protected override bool HandleImpl(ITrelloService service)
+        protected override bool HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

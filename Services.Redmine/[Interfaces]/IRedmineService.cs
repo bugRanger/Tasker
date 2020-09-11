@@ -1,12 +1,12 @@
-﻿namespace Services.GitLab
+﻿namespace Services.Redmine
 {
     using Common.Tasks;
 
-    public interface IGitLabService
+    public interface IRedmineService
     {
         #region Properties
 
-        IGitLabOptions Options { get; }
+        IRedmineOptions Options { get; }
 
         #endregion Properties
 
@@ -16,7 +16,7 @@
 
         void Stop();
 
-        void Enqueue(ITaskItem<IGitLabVisitor> task);
+        void Enqueue(ITaskItem<IRedmineVisitor> task);
 
         #endregion Methods
     }

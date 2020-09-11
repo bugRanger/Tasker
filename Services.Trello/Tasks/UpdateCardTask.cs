@@ -4,7 +4,7 @@
 
     using Common.Tasks;
 
-    public class UpdateCardTask : TaskItem<ITrelloService, string>, IUpdateCardTask
+    public class UpdateCardTask : TaskItem<ITrelloVisitor, string>, IUpdateCardTask
     {
         #region Fields
 
@@ -42,9 +42,9 @@
             Description = description;
         }
 
-        protected override string HandleImpl(ITrelloService service)
+        protected override string HandleImpl(ITrelloVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

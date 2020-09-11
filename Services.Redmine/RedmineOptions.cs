@@ -2,6 +2,8 @@
 {
     public class RedmineOptions : IRedmineOptions, IRedmineSync
     {
+        #region Properties
+
         public string Host { get; set; }
 
         public string ApiKey { get; set; }
@@ -17,5 +19,7 @@
         public int Interval { get; set; }
 
         public int UserId { get; set; }
+
+        #endregion Properties
     }
 }

@@ -4,11 +4,14 @@
 
     using Common.Tasks;
 
-    public interface IUpdateBoardTask : ITaskItem<ITrelloService>
+    public interface IUpdateBoardTask : ITaskItem<ITrelloVisitor>
     {
-        string Description { get; }
         string Id { get; }
+
         string Name { get; }
+
+        string Description { get; }
+
         Func<string, bool> СlearСontents { get; }
     }
 }

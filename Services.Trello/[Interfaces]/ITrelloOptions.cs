@@ -1,7 +1,9 @@
 ﻿namespace Services.Trello
 {
-    public interface ITrelloOptions 
+    public interface ITrelloOptions
     {
+        #region Properties
+
         string AppKey { get; }
 
         string Token { get; }
@@ -11,5 +13,7 @@
         string BoardName { get; set; }
 
         ITrelloSync Sync { get; }
+
+        #endregion Properties
     }
 }

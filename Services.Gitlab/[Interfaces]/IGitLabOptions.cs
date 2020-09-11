@@ -1,9 +1,9 @@
-﻿using GitLabApiClient.Internal.Paths;
-
-namespace Services.GitLab
+﻿namespace Services.GitLab
 {
     public interface IGitLabOptions
     {
+        #region Properties
+
         int ProjectId { get; }
 
         int AssignedId { get; }
@@ -13,5 +13,7 @@ namespace Services.GitLab
         string Token { get; }
 
         IGitLabSync Sync { get; }
+
+        #endregion Properties
     }
 }

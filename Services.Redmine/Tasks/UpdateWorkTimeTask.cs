@@ -3,7 +3,7 @@ namespace Services.Redmine.Tasks
     using System;
     using Common.Tasks;
 
-    public class UpdateWorkTimeTask : TaskItem<IRedmineService, bool>, IUpdateWorkTimeTask
+    public class UpdateWorkTimeTask : TaskItem<IRedmineVisitor, bool>, IUpdateWorkTimeTask
     {
         public int IssueId { get; }
 
@@ -19,9 +19,9 @@ namespace Services.Redmine.Tasks
             Comments = comments;
         }
 
-        protected override bool HandleImpl(IRedmineService service)
+        protected override bool HandleImpl(IRedmineVisitor visitor)
         {
-            return service.Handle(this);
+            return visitor.Handle(this);
         }
     }
 }

@@ -2,16 +2,19 @@
 {
     using Common.Command;
 
-    public class CommentEventArgs : CardEventArgs, ICommandArgs
+    public class CardComment : ICommandArgs
     {
+        public string CardId { get; }
+
         public string CommentId { get; }
 
         public string UserId { get; }
 
         public string Text { get; }
 
-        public CommentEventArgs(string cardId, string commentId, string userId, string text) : base(cardId)
+        public CardComment(string cardId, string commentId, string userId, string text)
         {
+            CardId = cardId;
             CommentId = commentId;
             UserId = userId;
             Text = text;

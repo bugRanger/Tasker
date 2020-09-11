@@ -2,7 +2,7 @@
 {
     using Common.Tasks;
 
-    public interface IUpdateIssueStatusTask : ITaskItem<IRedmineService>
+    public interface IUpdateIssueStatusTask : ITaskItem<IRedmineVisitor>
     {
         #region Properties
 

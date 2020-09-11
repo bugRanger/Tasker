@@ -4,8 +4,7 @@
 
     using Services.Trello.Tasks;
 
-
-    public interface ITrelloService : ITaskVisitor
+    public interface ITrelloVisitor : ITaskVisitor
     {
         #region Methods
 
