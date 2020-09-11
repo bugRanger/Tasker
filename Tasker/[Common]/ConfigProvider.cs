@@ -14,6 +14,7 @@
     {
         #region Constants
 
+        // TODO: Merge into one config file.
         private const string GITLAB_OPTIONS_FILE = "gitlabOptions.json";
         private const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
         private const string REDMINE_OPTIONS_FILE = "redmineOptions.json";

@@ -239,6 +239,7 @@
                         _mapper.Card2IssueMapper.Add(cardId, issue.Id);
                     }));
 
+                // TODO: Добавить создание МРа если задача оказалась на ревью.
                 //_gitlabService.Enqueue(new UpdateMergeRequestTask(_gitlabService.Options.ProjectId, "", ""));
             }
         }
@@ -317,7 +318,7 @@
                     break;
 
                 _trelloService.Enqueue(new UpdateCardFieldTask(fieldId: fieldId, cardId: cardId, value: request.Url));
-                // TODO: Продумать как лучше назначать "следующий" статус.
+                // TODO: Перевод задачи с ревью на новый статус после вливания МРа.
                 _redmineService.Enqueue(new UpdateIssueStatusTask(issueId, -1));
             }
         }
