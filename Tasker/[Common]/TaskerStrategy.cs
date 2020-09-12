@@ -22,7 +22,6 @@
     using Services.Redmine.Tasks;
 
     using TrelloCustomField = Services.Trello.CustomField;
-    using Framework.Common;
 
     // TODO: Разделить отвественность по сервисам.
     public class TaskerStrategy : ITaskerStrategy,  ITrelloBehaviors, IRedmineBehaviors, IGitLabBehaviors
@@ -30,7 +29,6 @@
         #region Fields
 
         private readonly ILogger _logger;
-        private readonly Locker _locker;
         private readonly ICommandController _trelloCommand;
 
         private ITaskerService _service;
@@ -43,8 +41,6 @@
         {
             _logger = LogManager.GetCurrentClassLogger();
 
-            _locker = new Locker();
-
             _trelloCommand = new CommandController(() => $"^{_service.TrelloService.Mention} ([A-Za-z]+):");
             _trelloCommand.Register<MergeCommand, CardComment>("merge", MergeCommandAction);
             _trelloCommand.Register<UptimeCommand, CardComment>("uptime", UptimeCommandAction);
@@ -56,9 +52,6 @@
 
         public void Start(ITaskerService service)
         {
-            if (!_locker.SetEnabled())
-                return;
-
             _service = service;
             _service.TrelloService.Register(this);
             _service.GitLabService.Register(this);
@@ -70,9 +63,6 @@
 
         public void Stop() 
         {
-            if (!_locker.SetDisabled())
-                return;
-
             _service.TrelloService.Stop();
             _service.GitLabService.Stop();
             _service.RedmineService.Stop();

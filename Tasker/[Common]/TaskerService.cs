@@ -2,6 +2,8 @@
 {
     using System;
 
+    using Framework.Common;
+
     using Services.Trello;
     using Services.GitLab;
     using Services.Redmine;
@@ -9,6 +11,8 @@
     public class TaskerService : ITaskerService
     {
         #region Fields
+
+        private readonly Locker _locker;
 
         private ITaskerStrategy _strategy;
 
@@ -30,6 +34,8 @@
 
         public TaskerService(IServiceMapper mapper)
         {
+            _locker = new Locker();
+
             Mapper = mapper;
         }
 
@@ -39,11 +45,17 @@
 
         public void Start()
         {
+            if (!_locker.SetEnabled())
+                return;
+
             _strategy.Start(this);
         }
 
         public void Stop()
         {
+            if (!_locker.SetDisabled())
+                return;
+
             _strategy.Stop();
         }
 
