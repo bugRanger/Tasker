@@ -18,7 +18,7 @@
 
             ConfigProvider config = null;
             TaskerService service = null;
-
+            bool stopped = false;
             try
             {
                 config = new ConfigProvider();
@@ -31,15 +31,42 @@
                 service.Register(new GitLabService(config.GitLabOptions, TimelineEnviroment.Instance));
                 service.Register(new RedmineService(config.RedmineOptions, TimelineEnviroment.Instance));
 
-                service.Start();
-
-                while (true)
+                while (!stopped)
                 {
-                    Console.WriteLine("Press key Q for stopped");
+                    var restart = false;
 
-                    var keyInfo = Console.ReadKey();
-                    if (keyInfo.Key == ConsoleKey.Q)
-                        break;
+                    service.Start();
+
+                    try
+                    {
+                        while (!restart && !stopped)
+                        {
+                            var keyInfo = Console.ReadKey();
+
+                            Console.WriteLine("Press key Q for stopped");
+                            Console.WriteLine("Press key S for setting");
+
+                            switch (keyInfo.Key)
+                            {
+                                case ConsoleKey.Q:
+                                    stopped = true;
+                                    break;
+
+                                case ConsoleKey.S:
+                                    // TODO: Impl.
+                                    //service.SetStrategy(new ConfigurationStrategy());
+                                    //restart = true;
+                                    break;
+
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+                    finally 
+                    {
+                        service.Stop();
+                    }
                 }
             }
             catch (Exception ex)
@@ -48,7 +75,6 @@
             }
             finally
             {
-                service?.Stop();
                 config?.Save();
             }
         }
