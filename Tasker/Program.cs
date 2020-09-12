@@ -41,10 +41,10 @@
                     {
                         while (!restart && !stopped)
                         {
-                            var keyInfo = Console.ReadKey();
-
                             Console.WriteLine("Press key Q for stopped");
                             Console.WriteLine("Press key S for setting");
+
+                            var keyInfo = Console.ReadKey();
 
                             switch (keyInfo.Key)
                             {
