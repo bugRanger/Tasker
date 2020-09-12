@@ -32,7 +32,7 @@
         private ILogger _logger;
         private IMe _user;
         private ITrelloOptions _options;
-        private ITrelloStrategy _strategy;
+        private ITrelloBehaviors _strategy;
         private TrelloFactory _factory;
         private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
@@ -63,13 +63,11 @@
 
         #region Constructors
 
-        public TrelloService(ITrelloStrategy strategy, ITrelloOptions options, ITimelineEnviroment timeline)
+        public TrelloService(ITrelloOptions options, ITimelineEnviroment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
             _options = options;
-            _strategy = strategy;
-            _strategy.Register(this);
 
             _boards = new Dictionary<string, IBoard>();
             _fields = new Dictionary<string, ICustomFieldDefinition>();
@@ -148,6 +146,11 @@
         public void Enqueue(ITaskItem<ITrelloVisitor> task)
         {
             _queue.Enqueue(task);
+        }
+
+        public void Register(ITrelloBehaviors behaviors) 
+        {
+            _strategy = behaviors;
         }
 
         public string Handle(IUpdateBoardTask task)
@@ -354,7 +357,7 @@
                 {
                     case Card.Fields.List:
                         card.Actions.Refresh(ct: _cancellationSource.Token).Wait();
-                        _strategy.UpdateList(new BoardList(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
+                        _strategy?.UpdateList(new BoardList(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
                         break;
 
                     case Card.Fields.Comments:
@@ -363,7 +366,7 @@
 
                         foreach (var comment in updateComments)
                         {
-                            _strategy.UpdateComment(new CardComment(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
+                            _strategy?.UpdateComment(new CardComment(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
                         }
                         break;
 

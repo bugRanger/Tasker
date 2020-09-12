@@ -29,24 +29,11 @@
 
         #region Fields
 
-        private static readonly object _locker = new object();
-
-        private static ConfigProvider _instance;
+        private readonly object _locker = new object();
 
         #endregion Fields
 
         #region Properties
-
-        public static ConfigProvider Instance 
-        { 
-            get 
-            {
-                lock (_locker) 
-                {
-                    return _instance ??= new ConfigProvider();
-                }
-            } 
-        }
 
         public ITrelloOptions TrelloOptions { get; private set; }
 

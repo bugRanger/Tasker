@@ -43,7 +43,7 @@
         #region Fields
 
         private ILogger _logger;
-        private IRedmineStrategy _strategy;
+        private IRedmineBehaviors _strategy;
         private IRedmineOptions _options;
         private RedmineManager _manager;
         private Dictionary<int, ProjectRM> _projects;
@@ -62,13 +62,11 @@
 
         #region Constructors
 
-        public RedmineService(IRedmineStrategy strategy, IRedmineOptions options, ITimelineEnviroment timeline)
+        public RedmineService(IRedmineOptions options, ITimelineEnviroment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
             _options = options;
-            _strategy = strategy;
-            _strategy.Register(this);
 
             _projects = new Dictionary<int, ProjectRM>();
             _issues = new Dictionary<int, IssueRM>();
@@ -114,6 +112,11 @@
         public void Enqueue(ITaskItem<IRedmineVisitor> task)
         {
             _queue.Enqueue(task);
+        }
+
+        public void Register(IRedmineBehaviors behaviors) 
+        {
+            _strategy = behaviors;
         }
 
         public bool Handle(IUpdateWorkTimeTask task)
@@ -196,7 +199,7 @@
                 _issues[issue.Id] = issue;
 
             if (updates.Any())
-                _strategy.UpdateIssues(updates.Select(s => new Issue(s)).ToArray());
+                _strategy?.UpdateIssues(updates.Select(s => new Issue(s)).ToArray());
 
             return true;
         }
@@ -211,7 +214,7 @@
             }
 
             if (updates.Any())
-                _strategy.UpdateStatuses(updates.Select(s => new IssueStatus(s)).ToArray());
+                _strategy?.UpdateStatuses(updates.Select(s => new IssueStatus(s)).ToArray());
 
             return true;
         }
@@ -224,7 +227,7 @@
                 _projects[item.Id] = item;
 
             if (updates.Any())
-                _strategy.UpdateProjects(updates.Select(s => new Project(s)).ToArray());
+                _strategy?.UpdateProjects(updates.Select(s => new Project(s)).ToArray());
 
             return true;
         }

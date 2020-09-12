@@ -2,11 +2,9 @@
 {
     using System;
     
-    public interface IRedmineStrategy
+    public interface IRedmineBehaviors
     {
         #region Methods
-        
-        void Register(IRedmineService visitor);
 
         void UpdateProjects(Project[] projects);
 

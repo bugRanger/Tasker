@@ -2,11 +2,9 @@
 {
     using System;
 
-    public interface ITrelloStrategy
+    public interface ITrelloBehaviors
     {
         #region Methods
-
-        void Register(ITrelloService visitor);
 
         void UpdateList(BoardList board);
 

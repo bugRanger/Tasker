@@ -21,6 +21,8 @@
 
         void Enqueue(ITaskItem<ITrelloVisitor> task);
 
+        void Register(ITrelloBehaviors behaviors);
+
         #endregion Methods
     }
 }

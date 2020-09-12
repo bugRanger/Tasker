@@ -18,6 +18,8 @@
 
         void Enqueue(ITaskItem<IRedmineVisitor> task);
 
+        void Register(IRedmineBehaviors behaviors);
+
         #endregion Methods
     }
 }

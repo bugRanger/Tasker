@@ -26,7 +26,7 @@
         private ILogger _logger;
         private GitLabClient _client;
         private IGitLabOptions _options;
-        private IGitLabStrategy _strategy;
+        private IGitLabBehaviors _strategy;
         private Dictionary<int, GitLabApiClient.Models.MergeRequests.Responses.MergeRequest> _requests;
         private Dictionary<string, GitLabApiClient.Models.Branches.Responses.Branch> _branches;
         private ITaskQueue<IGitLabVisitor> _queue;
@@ -42,13 +42,11 @@
 
         #region Constructors
 
-        public GitLabService(IGitLabStrategy strategy, IGitLabOptions options, ITimelineEnviroment timeline)
+        public GitLabService(IGitLabOptions options, ITimelineEnviroment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
             _options = options;
-            _strategy = strategy;
-            _strategy.Register(this);
 
             _requests = new Dictionary<int, GitLabApiClient.Models.MergeRequests.Responses.MergeRequest>();
             _branches = new Dictionary<string, GitLabApiClient.Models.Branches.Responses.Branch>();
@@ -92,6 +90,11 @@
         public void Enqueue(ITaskItem<IGitLabVisitor> task)
         {
             _queue.Enqueue(task);
+        }
+
+        public void Register(IGitLabBehaviors behaviors) 
+        {
+            _strategy = behaviors;
         }
 
         public int Handle(IUpdateMergeRequestTask task)
@@ -146,7 +149,7 @@
                 .Select(s => new Branch(s.Name, s.Commit.Title))
                 .ToDictionary(k => k.Name);
 
-            _strategy.UpdateBranches(notifications.Values.ToArray());
+            _strategy?.UpdateBranches(notifications.Values.ToArray());
 
             updates.ForEach(item =>
             {
@@ -186,7 +189,7 @@
                 })
                 .ToDictionary(k => k.Id);
 
-            _strategy.UpdateMerges(notifications.Values.ToArray());
+            _strategy?.UpdateMerges(notifications.Values.ToArray());
 
             updates.ForEach(item =>
             {

@@ -18,6 +18,8 @@
 
         void Enqueue(ITaskItem<IGitLabVisitor> task);
 
+        void Register(IGitLabBehaviors behaviors);
+
         #endregion Methods
     }
 }

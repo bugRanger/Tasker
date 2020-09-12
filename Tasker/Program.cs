@@ -16,21 +16,22 @@
         {
             LogManager.Configuration ??= new NLog.Config.LoggingConfiguration();
 
+            ConfigProvider config = null;
+            TaskerService service = null;
+
             try
             {
-                ConfigProvider.Instance.Load();
+                config = new ConfigProvider();
+                config.Load();
 
-                var strategy = new TaskerStrategy(ConfigProvider.Instance);
+                service = new TaskerService(config);
+                service.SetStrategy(new TaskerStrategy(config));
 
-                using var trelloService = new TrelloService(strategy, ConfigProvider.Instance.TrelloOptions, TimelineEnviroment.Instance);
-                using var gitlabService = new GitLabService(strategy, ConfigProvider.Instance.GitLabOptions, TimelineEnviroment.Instance);
-                using var redmineService = new RedmineService(strategy, ConfigProvider.Instance.RedmineOptions, TimelineEnviroment.Instance);
+                service.Register(new TrelloService(config.TrelloOptions, TimelineEnviroment.Instance));
+                service.Register(new GitLabService(config.GitLabOptions, TimelineEnviroment.Instance));
+                service.Register(new RedmineService(config.RedmineOptions, TimelineEnviroment.Instance));
 
-                Console.WriteLine("Starting...");
-
-                strategy.Start();
-
-                Console.WriteLine("Starting success!");
+                service.Start();
 
                 while (true)
                 {
@@ -40,12 +41,6 @@
                     if (keyInfo.Key == ConsoleKey.Q)
                         break;
                 }
-
-                Console.WriteLine("Stopped...");
-
-                strategy.Stop();
-
-                Console.WriteLine("Stopped success!");
             }
             catch (Exception ex)
             {
@@ -53,7 +48,8 @@
             }
             finally
             {
-                ConfigProvider.Instance.Save();
+                service?.Stop();
+                config?.Save();
             }
         }
     }
