@@ -17,25 +17,27 @@
             LogManager.Configuration ??= new NLog.Config.LoggingConfiguration();
 
             ConfigProvider config = null;
-            TaskerService service = null;
+            ITaskerService service = null;
+            ITaskerStrategy strategy = null;
+
             bool stopped = false;
             try
             {
                 config = new ConfigProvider();
                 config.Load();
 
-                service = new TaskerService(config);
-                service.SetStrategy(new TaskerStrategy(config));
+                strategy = new TaskerStrategy(config);
 
-                service.Register(new TrelloService(config.TrelloOptions, TimelineEnviroment.Instance));
-                service.Register(new GitLabService(config.GitLabOptions, TimelineEnviroment.Instance));
-                service.Register(new RedmineService(config.RedmineOptions, TimelineEnviroment.Instance));
+                service = new TaskerService(config);
+                service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnviroment.Instance));
+                service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnviroment.Instance));
+                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnviroment.Instance));
 
                 while (!stopped)
                 {
                     var restart = false;
 
-                    service.Start();
+                    service.Start(strategy);
 
                     try
                     {
@@ -54,7 +56,7 @@
 
                                 case ConsoleKey.S:
                                     // TODO: Impl.
-                                    //service.SetStrategy(new ConfigurationStrategy());
+                                    //strategy new ConfigurationStrategy();
                                     //restart = true;
                                     break;
 

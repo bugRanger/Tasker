@@ -9,16 +9,26 @@
     using Services.Trello;
     using Services.Redmine;
 
-    // TODO: Уйти от конфиг файлов и статик класса.
     public class ConfigProvider : IServiceMapper
     {
+        #region Classes
+
+        public class ServiceSettings
+        {
+            public ITrelloOptions TrelloOptions { get; private set; }
+
+            public IGitLabOptions GitLabOptions { get; private set; }
+
+            public IRedmineOptions RedmineOptions { get; private set; }
+        }
+
+        #endregion Classes
+
         #region Constants
 
-        // TODO: Merge into one config file.
-        private const string GITLAB_OPTIONS_FILE = "gitlabOptions.json";
-        private const string TRELLO_OPTIONS_FILE = "trelloOptions.json";
-        private const string REDMINE_OPTIONS_FILE = "redmineOptions.json";
+        private const string SERVICE_SETTINGS_FILE = "serviceSettings.json";
 
+        // TODO: Move to data base.
         private const string CARD_MAPPER_FILE = "cardsMapper.json";
         private const string LIST_MAPPER_FILE = "listsMapper.json";
         private const string LABEL_MAPPER_FILE = "labelMapper.json";
@@ -35,11 +45,7 @@
 
         #region Properties
 
-        public ITrelloOptions TrelloOptions { get; private set; }
-
-        public IGitLabOptions GitLabOptions { get; private set; }
-
-        public IRedmineOptions RedmineOptions { get; private set; }
+        public ServiceSettings Settings { get; private set; }
 
         public Mapper<string, int> Card2IssueMapper { get; private set; }
 
@@ -62,9 +68,7 @@
                 Task.Factory
                     .ContinueWhenAll(new[]
                     {
-                        Task.Run(async () => { TrelloOptions = await JsonConfig.Read<TrelloOptions>(TRELLO_OPTIONS_FILE); }),
-                        Task.Run(async () => { GitLabOptions = await JsonConfig.Read<GitLabOptions>(GITLAB_OPTIONS_FILE); }),
-                        Task.Run(async () => { RedmineOptions = await JsonConfig.Read<RedmineOptions>(REDMINE_OPTIONS_FILE); }),
+                        Task.Run(async () => { Settings = await JsonConfig.Read<ServiceSettings>(SERVICE_SETTINGS_FILE); }),
 
                         Task.Run(async () => { Card2IssueMapper = await JsonConfig.Read<Mapper<string, int>>(CARD_MAPPER_FILE); }),
                         Task.Run(async () => { List2StatusMapper = await JsonConfig.Read<Mapper<string, int>>(LIST_MAPPER_FILE); }),
@@ -83,9 +87,7 @@
                 Task.Factory
                     .ContinueWhenAll(new[]
                     {
-                        Task.Run(async () => await JsonConfig.Write(TrelloOptions, TRELLO_OPTIONS_FILE)),
-                        Task.Run(async () => await JsonConfig.Write(GitLabOptions, GITLAB_OPTIONS_FILE)),
-                        Task.Run(async () => await JsonConfig.Write(RedmineOptions, REDMINE_OPTIONS_FILE)),
+                        Task.Run(async () => await JsonConfig.Write(Settings, SERVICE_SETTINGS_FILE)),
 
                         Task.Run(async () => await JsonConfig.Write(Card2IssueMapper, CARD_MAPPER_FILE)),
                         Task.Run(async () => await JsonConfig.Write(List2StatusMapper, LIST_MAPPER_FILE)),

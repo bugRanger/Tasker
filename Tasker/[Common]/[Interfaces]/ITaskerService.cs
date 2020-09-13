@@ -19,5 +19,19 @@
         IServiceMapper Mapper { get; }
 
         #endregion Properties
+
+        #region Methods
+
+        void Start(ITaskerStrategy strategy = null);
+
+        void Stop();
+
+        void Register(ITrelloService service);
+
+        void Register(IGitLabService service);
+
+        void Register(IRedmineService service);
+
+        #endregion Methods
     }
 }
