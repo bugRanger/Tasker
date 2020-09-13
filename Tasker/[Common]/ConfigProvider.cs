@@ -20,6 +20,13 @@
             public IGitLabOptions GitLabOptions { get; private set; }
 
             public IRedmineOptions RedmineOptions { get; private set; }
+
+            public ServiceSettings() 
+            {
+                TrelloOptions = new TrelloOptions();
+                GitLabOptions = new GitLabOptions();
+                RedmineOptions = new RedmineOptions();
+            }
         }
 
         #endregion Classes
