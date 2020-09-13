@@ -10,7 +10,7 @@
     using NLog;
 
     using Common.Tasks;
-    using Framework.Common;
+    using Framework.Timeline;
 
     using RedmineApi.Core;
     using RedmineApi.Core.Types;
@@ -62,7 +62,7 @@
 
         #region Constructors
 
-        public RedmineService(IRedmineOptions options, ITimelineEnviroment timeline)
+        public RedmineService(IRedmineOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 

@@ -9,15 +9,16 @@
     using NLog;
 
     using Common.Tasks;
-    using Framework.Common;
+
+    using Framework.Timeline;
 
     using GitLabApiClient;
     using GitLabApiClient.Models.MergeRequests.Requests;
     using GitLabApiClient.Models.MergeRequests.Responses;
+    using GitLabApiClient.Models.Branches.Requests;
     using GitLabApiClient.Models.Branches.Responses;
 
     using Tasks;
-    using GitLabApiClient.Models.Branches.Requests;
 
     public class GitLabService : IGitLabService, IGitLabVisitor, IDisposable
     {
@@ -42,7 +43,7 @@
 
         #region Constructors
 
-        public GitLabService(IGitLabOptions options, ITimelineEnviroment timeline)
+        public GitLabService(IGitLabOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 

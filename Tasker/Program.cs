@@ -4,7 +4,7 @@
 
     using NLog;
 
-    using Framework.Common;
+    using Framework.Timeline;
 
     using Services.Trello;
     using Services.GitLab;
@@ -29,9 +29,9 @@
                 strategy = new TaskerStrategy(config);
 
                 service = new TaskerService(config);
-                service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnviroment.Instance));
-                service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnviroment.Instance));
-                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnviroment.Instance));
+                service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
+                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
 
                 while (!stopped)
                 {
