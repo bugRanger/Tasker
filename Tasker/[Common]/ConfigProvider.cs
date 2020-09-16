@@ -3,6 +3,8 @@
     using System;
     using System.Threading.Tasks;
 
+    using NLog;
+
     using Framework.Common;
 
     using Services.GitLab;
@@ -13,27 +15,27 @@
     {
         #region Classes
 
-        public class ServiceSettings
+        public class SettingServices : ISettingServices
         {
-            public ITrelloOptions TrelloOptions { get; private set; }
+            public TrelloOptions TrelloOptions { get; set; }
 
-            public IGitLabOptions GitLabOptions { get; private set; }
+            public GitLabOptions GitLabOptions { get; set; }
 
-            public IRedmineOptions RedmineOptions { get; private set; }
+            public RedmineOptions RedmineOptions { get; set; }
 
-            public ServiceSettings() 
-            {
-                TrelloOptions = new TrelloOptions();
-                GitLabOptions = new GitLabOptions();
-                RedmineOptions = new RedmineOptions();
-            }
+
+            ITrelloOptions ISettingServices.TrelloOptions => TrelloOptions;
+
+            IGitLabOptions ISettingServices.GitLabOptions => GitLabOptions;
+
+            IRedmineOptions ISettingServices.RedmineOptions => RedmineOptions;
         }
 
         #endregion Classes
 
         #region Constants
 
-        private const string SERVICE_SETTINGS_FILE = "serviceSettings.json";
+        private const string SETTING_SERVICEs_FILE = "serviceSettings.json";
 
         // TODO: Move to data base.
         private const string CARD_MAPPER_FILE = "cardsMapper.json";
@@ -46,13 +48,15 @@
 
         #region Fields
 
+        private readonly ILogger _logger;
+
         private readonly object _locker = new object();
 
         #endregion Fields
 
         #region Properties
 
-        public ServiceSettings Settings { get; private set; }
+        public SettingServices Settings { get; private set; }
 
         public Mapper<string, int> Card2IssueMapper { get; private set; }
 
@@ -66,6 +70,15 @@
 
         #endregion Properties
 
+        #region Constructors
+
+        public ConfigProvider()
+        {
+            _logger = LogManager.GetCurrentClassLogger();
+        }
+
+        #endregion Constructors
+
         #region Methods
 
         public void Load()
@@ -75,7 +88,17 @@
                 Task.Factory
                     .ContinueWhenAll(new[]
                     {
-                        Task.Run(async () => { Settings = await JsonConfig.Read<ServiceSettings>(SERVICE_SETTINGS_FILE); }),
+                        Task.Run(async () => 
+                        {
+                            try
+                            {
+                                Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICEs_FILE);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error("failure loading configuration: " + ex.Message);
+                            }
+                        }),
 
                         Task.Run(async () => { Card2IssueMapper = await JsonConfig.Read<Mapper<string, int>>(CARD_MAPPER_FILE); }),
                         Task.Run(async () => { List2StatusMapper = await JsonConfig.Read<Mapper<string, int>>(LIST_MAPPER_FILE); }),
@@ -94,7 +117,7 @@
                 Task.Factory
                     .ContinueWhenAll(new[]
                     {
-                        Task.Run(async () => await JsonConfig.Write(Settings, SERVICE_SETTINGS_FILE)),
+                        Task.Run(async () => await JsonConfig.Write(Settings, SETTING_SERVICEs_FILE)),
 
                         Task.Run(async () => await JsonConfig.Write(Card2IssueMapper, CARD_MAPPER_FILE)),
                         Task.Run(async () => await JsonConfig.Write(List2StatusMapper, LIST_MAPPER_FILE)),
