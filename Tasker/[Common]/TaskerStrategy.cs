@@ -68,6 +68,10 @@
             _service.RedmineService.Stop();
         }
 
+        #endregion Methods
+
+        #region Trello
+
         private void MergeCommandAction(MergeCommand command, CardComment args)
         {
             // TODO: Get project id for GitLab MR.
@@ -154,10 +158,6 @@
                 commentId: commendId,
                 emoji: result ? TrelloService.Success : TrelloService.Failed));
         }
-
-        #endregion Methods
-
-        #region Trello
 
         public void UpdateComment(CardComment comment)
         {

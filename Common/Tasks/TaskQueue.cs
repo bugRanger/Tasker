@@ -5,6 +5,7 @@
     using System.Collections.Concurrent;
 
     using Framework.Common;
+    using Framework.Timeline;
 
     public class TaskQueue<TVisitor> : ITaskQueue<TVisitor>
         where TVisitor : ITaskVisitor
@@ -17,7 +18,7 @@
         private readonly AutoResetEvent _syncTask;
         private readonly ConcurrentQueue<ITaskItem<TVisitor>> _queueTask;
         private readonly Action<ITaskItem<TVisitor>> _execute;
-        private readonly ITimelineEnviroment _timeline;
+        private readonly ITimelineEnvironment _timeline;
         private readonly int _wait;
 
         private Thread _thread;
@@ -32,7 +33,7 @@
 
         #region Constructor
 
-        public TaskQueue(Action<ITaskItem<TVisitor>> execute, ITimelineEnviroment timeline, int wait = WAIT_DEFAULT)
+        public TaskQueue(Action<ITaskItem<TVisitor>> execute, ITimelineEnvironment timeline, int wait = WAIT_DEFAULT)
         {
             _queueTask = new ConcurrentQueue<ITaskItem<TVisitor>>();
             _syncTask = new AutoResetEvent(false);
@@ -50,7 +51,7 @@
 
         public void Enqueue(ITaskItem<TVisitor> task)
         {
-            if (!_locker.IsEnabled())
+            if (!_locker.IsEnabled)
                 return;
 
             _queueTask.Enqueue(task);
@@ -76,18 +77,18 @@
 
         public bool HasEnabled()
         {
-            return _locker.IsEnabled();
+            return _locker.IsEnabled;
         }
 
         private void HandleTask()
         {
-            while (_locker.IsEnabled())
+            while (_locker.IsEnabled)
             {
                 var startTime = _timeline.TickCount();
 
                 while (_queueTask.TryDequeue(out ITaskItem<TVisitor> task))
                 {
-                    if (!_locker.IsEnabled())
+                    if (!_locker.IsEnabled)
                         return;
 
                     try

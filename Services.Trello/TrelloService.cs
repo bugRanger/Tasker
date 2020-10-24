@@ -11,7 +11,7 @@
     using NLog;
 
     using Common.Tasks;
-    using Framework.Common;
+    using Framework.Timeline;
 
     using Manatee.Trello;
 
@@ -63,7 +63,7 @@
 
         #region Constructors
 
-        public TrelloService(ITrelloOptions options, ITimelineEnviroment timeline)
+        public TrelloService(ITrelloOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 

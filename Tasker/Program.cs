@@ -4,7 +4,7 @@
 
     using NLog;
 
-    using Framework.Common;
+    using Framework.Timeline;
 
     using Services.Trello;
     using Services.GitLab;
@@ -17,34 +17,36 @@
             LogManager.Configuration ??= new NLog.Config.LoggingConfiguration();
 
             ConfigProvider config = null;
-            TaskerService service = null;
+            ITaskerService service = null;
+            ITaskerStrategy strategy = null;
+
             bool stopped = false;
             try
             {
                 config = new ConfigProvider();
                 config.Load();
 
-                service = new TaskerService(config);
-                service.SetStrategy(new TaskerStrategy(config));
+                strategy = new TaskerStrategy(config);
 
-                service.Register(new TrelloService(config.TrelloOptions, TimelineEnviroment.Instance));
-                service.Register(new GitLabService(config.GitLabOptions, TimelineEnviroment.Instance));
-                service.Register(new RedmineService(config.RedmineOptions, TimelineEnviroment.Instance));
+                service = new TaskerService(config);
+                service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
+                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
 
                 while (!stopped)
                 {
                     var restart = false;
 
-                    service.Start();
+                    service.Start(strategy);
 
                     try
                     {
                         while (!restart && !stopped)
                         {
-                            var keyInfo = Console.ReadKey();
-
                             Console.WriteLine("Press key Q for stopped");
                             Console.WriteLine("Press key S for setting");
+
+                            var keyInfo = Console.ReadKey();
 
                             switch (keyInfo.Key)
                             {
@@ -54,7 +56,7 @@
 
                                 case ConsoleKey.S:
                                     // TODO: Impl.
-                                    //service.SetStrategy(new ConfigurationStrategy());
+                                    //strategy new ConfigurationStrategy();
                                     //restart = true;
                                     break;
 

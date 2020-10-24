@@ -43,11 +43,12 @@
 
         #region Methods
 
-        public void Start()
+        public void Start(ITaskerStrategy strategy = null)
         {
             if (!_locker.SetEnabled())
                 return;
 
+            _strategy ??= strategy;
             _strategy.Start(this);
         }
 
@@ -72,11 +73,6 @@
         public void Register(IRedmineService service)
         {
             RedmineService = service;
-        }
-
-        public void SetStrategy(ITaskerStrategy strategy) 
-        {
-            _strategy = strategy;
         }
 
         #endregion Methods
