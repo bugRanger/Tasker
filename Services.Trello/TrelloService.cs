@@ -16,8 +16,10 @@
     using Manatee.Trello;
 
     using Tasks;
+    using Tasker.Common;
+    using Tasker.Interfaces;
 
-    public class TrelloService : ITrelloService, ITrelloVisitor, IDisposable
+    public class TrelloService : ITaskService, ITrelloVisitor, IDisposable
     {
         #region Constants
 
@@ -31,14 +33,10 @@
 
         private ILogger _logger;
         private IMe _user;
-        private ITrelloOptions _options;
-        private ITrelloBehaviors _strategy;
         private TrelloFactory _factory;
         private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
         private Dictionary<string, IList> _lists;
-        private Dictionary<string, ILabel> _labels;
-        private Dictionary<string, ICustomFieldDefinition> _fields;
         private ITaskQueue<ITrelloVisitor> _queue;
         private CancellationTokenSource _cancellationSource;
 
@@ -57,9 +55,15 @@
 
         public string Mention => User?.Mention ?? null;
 
-        public ITrelloOptions Options => _options;
+        public ITrelloOptions Options { get; }
 
         #endregion Properties
+
+        #region Events
+
+        public event Action<object, ITaskCommon, NotifyAction> Notify;
+
+        #endregion Events
 
         #region Constructors
 
@@ -67,17 +71,15 @@
         {
             _logger = LogManager.GetCurrentClassLogger();
 
-            _options = options;
+            Options = options;
 
             _boards = new Dictionary<string, IBoard>();
-            _fields = new Dictionary<string, ICustomFieldDefinition>();
-            _labels = new Dictionary<string, ILabel>();
             _lists = new Dictionary<string, IList>();
             _cards = new Dictionary<string, ICard>();
 
             _cancellationSource = new CancellationTokenSource();
             _queue = new TaskQueue<ITrelloVisitor>(task => task.Handle(this), timeline);
-            _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`");
+            _queue.Error += (task, error) => _logger?.Error($"failed task: {task.GetType()}, error: `{error}`");
         }
 
         public void Dispose()
@@ -94,8 +96,8 @@
             if (_queue.HasEnabled())
                 return;
 
-            TrelloAuthorization.Default.AppKey = _options.AppKey;
-            TrelloAuthorization.Default.UserToken = _options.Token;
+            TrelloAuthorization.Default.AppKey = Options.AppKey;
+            TrelloAuthorization.Default.UserToken = Options.Token;
 
             _factory ??= new TrelloFactory();
 
@@ -131,7 +133,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncActionTask<ITrelloVisitor>(SyncBoardCards, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask<ITrelloVisitor>(SyncBoardCards, _queue, Options.Sync.Interval));
         }
 
         public void Stop()
@@ -143,201 +145,88 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<ITrelloVisitor> task)
+        public void Enqueue(ITaskCommon task, NotifyAction action, Action<ITaskCommon> callback = null)
         {
-            _queue.Enqueue(task);
+            switch (action)
+            {
+                case NotifyAction.Update:
+                    Enqueue(new UpdateCardTask(task));
+                    break;
+
+                case NotifyAction.Delete:
+                    break;
+
+                default:
+                    break;
+            }
         }
 
-        public void Register(ITrelloBehaviors behaviors) 
-        {
-            _strategy = behaviors;
-        }
 
-        public string Handle(IUpdateBoardTask task)
+        public string Handle(UpdateCardTask task)
         {
-            if (string.IsNullOrWhiteSpace(task.Id) ||
-                !_boards.TryGetValue(task.Id, out IBoard board))
+            if (string.IsNullOrWhiteSpace(Options.BoardId) ||
+                !_boards.TryGetValue(Options.BoardId, out IBoard board))
             {
                 User.Boards.Refresh(ct: _cancellationSource.Token).Wait();
 
                 board =
-                    User.Boards.FirstOrDefault(f => f.Id == task.Id) ??
-                    User.Boards.Add(task.Name, task.Description, ct: _cancellationSource.Token).Result;
-            }
+                    User.Boards.FirstOrDefault(f => f.Id == Options.BoardId) ??
+                    User.Boards.Add(Options.BoardName, ct: _cancellationSource.Token).Result;
 
-            if (board.Name != task.Name)
-                board.Name = task.Name;
+                // TODO: Добавить обработку/запись исключений для каждой задачи.
+                Task.Factory
+                    .ContinueWhenAll(new[]
+                    {
+                        board.CustomFields.Refresh(ct: _cancellationSource.Token),
+                        board.Labels.Refresh(ct: _cancellationSource.Token),
+                        board.Lists.Refresh(ct: _cancellationSource.Token),
+                        board.Cards.Refresh(ct: _cancellationSource.Token),
+                    }, s => { })
+                    .Wait();
 
-            if (board.Description != task.Description)
-                board.Description = task.Description;
-
-            // TODO: Добавить обработку/запись исключений для каждой задачи.
-            Task.Factory.ContinueWhenAll(new[]
-            {
-                board.CustomFields.Refresh(ct: _cancellationSource.Token),
-                board.Labels.Refresh(ct: _cancellationSource.Token),
-                board.Lists.Refresh(ct: _cancellationSource.Token),
-                board.Cards.Refresh(ct: _cancellationSource.Token),
-            }, 
-            s => { }).Wait();
-
-            if (task.СlearСontents?.Invoke(board.Id) == true)
-            {
                 foreach (IList item in board.Lists)
                     item.IsArchived = true;
+
+                _boards[board.Id] = board;
             }
 
-            _boards[board.Id] = board;
-            return board.Id;
-        }
-
-        public string Handle(IUpdateFieldTask task)
-        {
-            if (string.IsNullOrWhiteSpace(task.BoardId) ||
-                !_boards.TryGetValue(task.BoardId, out IBoard board))
-                return null;
-
-            if (string.IsNullOrWhiteSpace(task.Id) ||
-                !_fields.TryGetValue(task.Id, out ICustomFieldDefinition field))
+            if (string.IsNullOrWhiteSpace(task.Context.Status) ||
+                !_lists.TryGetValue(task.Context.Status, out IList list))
             {
-                field =
-                    board.CustomFields.FirstOrDefault(f => f.Id == task.Id || f.Name == task.Name) ?? 
-                    board.CustomFields.Add(task.Name, task.Type, options: task.Options, ct: _cancellationSource.Token).Result;
+                list =
+                    board.Lists.FirstOrDefault(f => f.Name == task.Context.Status) ??
+                    board.Lists.Add(task.Context.Status, ct: _cancellationSource.Token).Result;
+
+                _lists[list.Id] = list;
             }
 
-            _fields[field.Id] = field;
-            return field.Id;
-        }
-
-        public string Handle(IUpdateLabelTask task)
-        {
-            if (string.IsNullOrWhiteSpace(task.BoardId) ||
-                !_boards.TryGetValue(task.BoardId, out IBoard board))
-                return null;
-
-            if (string.IsNullOrWhiteSpace(task.Id) ||
-                !_labels.TryGetValue(task.Id, out ILabel item))
-            {
-                item =
-                    board.Labels.FirstOrDefault(f => f.Id == task.Id) ??
-                    board.Labels.Add(task.Name, task.Color, ct: _cancellationSource.Token).Result;
-            }
-
-            _labels[item.Id] = item;
-            return item.Id;
-        }
-
-        public string Handle(IUpdateListTask task)
-        {
-            if (string.IsNullOrWhiteSpace(task.BoardId) || 
-                !_boards.TryGetValue(task.BoardId, out IBoard board))
-                return null;
-
-            if (string.IsNullOrWhiteSpace(task.ListId) || 
-                !_lists.TryGetValue(task.ListId, out IList list))
-            {
-                list = 
-                    board.Lists.FirstOrDefault(f => f.Id == task.ListId) ??
-                    board.Lists.Add(task.Name, ct: _cancellationSource.Token).Result;
-            }
-
-            _lists[list.Id] = list;
-            return list.Id;
-        }
-
-        public string Handle(IUpdateCardTask task)
-        {
-            if (string.IsNullOrWhiteSpace(task.BoardId) ||
-                !_boards.TryGetValue(task.BoardId, out IBoard board))
-                return null;
-
-            if (string.IsNullOrWhiteSpace(task.ListId) || 
-                !_lists.TryGetValue(task.ListId, out IList list))
-                return null;
-
-            if (string.IsNullOrWhiteSpace(task.CardId) || 
+            if (string.IsNullOrWhiteSpace(task.CardId) ||
                 !_cards.TryGetValue(task.CardId, out ICard card))
             {
-                card = 
+                card =
                     board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
-                    list.Cards.Add(task.Subject, ct: _cancellationSource.Token).Result;
+                    list.Cards.Add(task.Context.Name, ct: _cancellationSource.Token).Result;
 
                 card.Updated += OnCardUpdated;
             }
 
-            if (card.List?.Id != task.ListId)
-                card.List = _lists[task.ListId];
+            if (card.List?.Id != list.Id)
+                card.List = list;
 
-            if (!string.IsNullOrWhiteSpace(task.Subject) && card.Name != task.Subject)
-                card.Name = task.Subject;
+            if (!string.IsNullOrWhiteSpace(task.Context.Name) && card.Name != task.Context.Name)
+                card.Name = task.Context.Name;
 
-            if (!string.IsNullOrWhiteSpace(task.Description) && card.Description != task.Description)
-                card.Description = task.Description;
-
-            if (!string.IsNullOrWhiteSpace(task.LabelId) && _labels.TryGetValue(task.LabelId, out ILabel label))
-            {
-                if (card.Labels.FirstOrDefault(f => f.Id == label.Id) == null)
-                    card.Labels.Add(label, ct: _cancellationSource.Token).Wait();
-            }
+            if (!string.IsNullOrWhiteSpace(task.Context.Desc) && card.Description != task.Context.Desc)
+                card.Description = task.Context.Desc;
 
             _cards[card.Id] = card;
             return card.Id;
         }
 
-        public bool Handle(IUpdateCardFieldTask task)
+
+        private void Enqueue(ITaskItem<ITrelloVisitor> task)
         {
-            if (string.IsNullOrWhiteSpace(task.FieldId) || !_fields.TryGetValue(task.FieldId, out ICustomFieldDefinition field) ||
-                string.IsNullOrWhiteSpace(task.CardId) || !_cards.TryGetValue(task.CardId, out ICard card))
-                return false;
-
-            switch (field.Type)
-            {
-                case CustomFieldType.CheckBox:
-                    field.SetValueForCard(card, task.Value != null ? (bool?)Convert.ChangeType(task.Value, typeof(bool)) : null, _cancellationSource.Token).Wait();
-                    break;
-
-                case CustomFieldType.Number:
-                    field.SetValueForCard(card, task.Value != null ? (double?)Convert.ChangeType(task.Value, typeof(double)) : null, _cancellationSource.Token).Wait();
-                    break;
-
-                case CustomFieldType.Text:
-                    field.SetValueForCard(card, (string)Convert.ChangeType(task.Value, typeof(string)), _cancellationSource.Token).Wait();
-                    break;
-
-                case CustomFieldType.DateTime:
-                    field.SetValueForCard(card, task.Value != null ? (DateTime?)Convert.ChangeType(task.Value, typeof(DateTime)) : null, _cancellationSource.Token).Wait();
-                    break;
-
-                default:
-                    return false;
-            }
-
-            return true;
-        }
-
-        public bool Handle(IAddCommentTask task)
-        {
-            if (string.IsNullOrWhiteSpace(task.Comment) ||
-                !_cards.TryGetValue(task.CardId, out ICard card))
-                return false;
-
-            card.Comments.Add(task.Comment, _cancellationSource.Token).Wait();
-
-            return true;
-        }
-
-        public bool Handle(IEmojiCommentTask task)
-        {
-            if (task.Emoji == null || !_cards.TryGetValue(task.CardId, out ICard card))
-                return false;
-
-            var comment = card.Comments.FirstOrDefault(f => f.Id == task.CommentId);
-            if (comment == null)
-                return false;
-
-            comment.Reactions.Add(task.Emoji, _cancellationSource.Token).Wait();
-
-            return true;
+            _queue.Enqueue(task);
         }
 
         private bool SyncBoardCards()
@@ -351,29 +240,7 @@
 
         private void OnCardUpdated(ICard card, IEnumerable<string> fields)
         {
-            foreach (Card.Fields field in fields.Select(s => { return Enum.TryParse(s, out Card.Fields value) ? value : Card.Fields.IsSubscribed; }))
-            {
-                switch (field)
-                {
-                    case Card.Fields.List:
-                        card.Actions.Refresh(ct: _cancellationSource.Token).Wait();
-                        _strategy?.UpdateList(new BoardList(cardId: card.Id, card.Actions.Last().Data.ListBefore.Id, card.Actions.Last().Data.ListAfter.Id));
-                        break;
-
-                    case Card.Fields.Comments:
-                        var updateComments = card.Comments.Where(w => w.Reactions
-                            .FirstOrDefault(f => f.Member.Mention == Mention && f.Emoji.Equals(Success) || f.Emoji.Equals(Failed)) == null).ToArray();
-
-                        foreach (var comment in updateComments)
-                        {
-                            _strategy?.UpdateComment(new CardComment(card.Id, comment.Id, comment.Creator.Id, comment.Data.Text));
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-            }
+            Notify?.Invoke(this, new TaskCommon { Id = card.Id, Context = new TaskContext { Name = card.Name, Desc = card.Description, Status = card.List.Name } }, NotifyAction.Update);
         }
 
         #endregion Methods

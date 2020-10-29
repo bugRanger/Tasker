@@ -14,6 +14,10 @@
 
         #region Methods
 
+        void Start();
+
+        void Stop();
+
         void Enqueue(ITaskCommon task, NotifyAction action, Action<ITaskCommon> callback = null);
 
         #endregion Methods

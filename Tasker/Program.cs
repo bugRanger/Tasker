@@ -32,7 +32,7 @@
 
                 TrelloService trello;
 
-                //service.Register(trello = new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                service.Register(trello = new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
                 //service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
                 //service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
 
@@ -41,7 +41,7 @@
                     var restart = false;
 
                     //service.Start(strategy);
-                    //trello.Start();
+                    trello.Start();
 
                     try
                     {
@@ -72,7 +72,7 @@
                     finally
                     {
                         //service.Stop();
-                        //trello.Stop();
+                        trello.Stop();
                     }
                 }
             }

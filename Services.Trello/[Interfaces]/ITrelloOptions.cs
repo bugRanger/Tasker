@@ -4,6 +4,8 @@
     {
         #region Properties
 
+        string Mention { get; }
+
         string AppKey { get; }
 
         string Token { get; }
