@@ -84,7 +84,7 @@
         {
             while (_locker.IsEnabled)
             {
-                var startTime = _timeline.TickCount();
+                var startTime = _timeline.TickCount;
 
                 while (_queueTask.TryDequeue(out ITaskItem<TVisitor> task))
                 {
@@ -101,7 +101,7 @@
                     }
                 }
 
-                var endTime = _timeline.TickCount();
+                var endTime = _timeline.TickCount;
                 var sleep = _wait - (endTime - startTime);
                 if (sleep > 0)
                     _syncTask.WaitOne((int)sleep);

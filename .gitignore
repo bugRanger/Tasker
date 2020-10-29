@@ -14,3 +14,8 @@
 /Services.TrelloReceiver/obj
 /Utils/bin/Debug/netcoreapp3.1
 /Utils/obj
+/Tasker.Common/obj/Debug/netcoreapp3.1
+/Tasker.Common/obj
+/Tasker.Common/bin/Debug/netcoreapp3.1
+/Tasker.Tests/bin/Debug/netcoreapp3.1
+/Tasker.Tests/obj
