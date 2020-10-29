@@ -13,6 +13,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services.Trello", "Services
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tasker", "Tasker\Tasker.csproj", "{F9178067-3996-4E34-9163-3F6EA94D2998}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tasker.Common", "Tasker.Common\Tasker.Common.csproj", "{35F08C0A-3087-4FC4-9C58-B6776A65965D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tasker.Tests", "Tasker.Tests\Tasker.Tests.csproj", "{115CC978-F718-453C-9749-DCC806025067}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +43,14 @@ Global
 		{F9178067-3996-4E34-9163-3F6EA94D2998}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9178067-3996-4E34-9163-3F6EA94D2998}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F9178067-3996-4E34-9163-3F6EA94D2998}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35F08C0A-3087-4FC4-9C58-B6776A65965D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35F08C0A-3087-4FC4-9C58-B6776A65965D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35F08C0A-3087-4FC4-9C58-B6776A65965D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35F08C0A-3087-4FC4-9C58-B6776A65965D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{115CC978-F718-453C-9749-DCC806025067}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{115CC978-F718-453C-9749-DCC806025067}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{115CC978-F718-453C-9749-DCC806025067}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{115CC978-F718-453C-9749-DCC806025067}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

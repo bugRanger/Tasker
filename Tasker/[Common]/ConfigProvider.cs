@@ -1,17 +1,21 @@
-﻿namespace Tasker
+﻿using System.Threading.Tasks;
+
+namespace Tasker
 {
     using System;
     using System.Threading.Tasks;
 
     using NLog;
 
-    using Framework.Common;
-
     using Services.GitLab;
     using Services.Trello;
     using Services.Redmine;
 
-    public class ConfigProvider : IServiceMapper
+    using Framework.Common;
+
+    using System.Collections.Generic;
+
+    public class ConfigProvider
     {
         #region Classes
 
@@ -22,7 +26,6 @@
             public GitLabOptions GitLabOptions { get; set; }
 
             public RedmineOptions RedmineOptions { get; set; }
-
 
             ITrelloOptions ISettingServices.TrelloOptions => TrelloOptions;
 
@@ -35,14 +38,8 @@
 
         #region Constants
 
-        private const string SETTING_SERVICEs_FILE = "serviceSettings.json";
-
-        // TODO: Move to data base.
-        private const string CARD_MAPPER_FILE = "cardsMapper.json";
-        private const string LIST_MAPPER_FILE = "listsMapper.json";
-        private const string LABEL_MAPPER_FILE = "labelMapper.json";
-        private const string FIELD_MAPPER_FILE = "fieldMapper.json";
-        private const string BRANCH_MAPPER_FILE = "branchesMapper.json";
+        private const string CACHED_FILE = "cached.json";
+        private const string SETTING_SERVICE_FILE = "serviceSettings.json";
 
         #endregion Constants
 
@@ -58,15 +55,7 @@
 
         public SettingServices Settings { get; private set; }
 
-        public Mapper<string, int> Card2IssueMapper { get; private set; }
-
-        public Mapper<string, int> List2StatusMapper { get; private set; }
-
-        public Mapper<string, int> Label2ProjectMapper { get; private set; }
-
-        public Mapper<string, int> Branch2IssueMapper { get; private set; }
-
-        public Mapper<string, CustomField> Field2FieldMapper { get; private set; }
+        public List<KeyValuePair<int, string>> Cached { get; private set; }
 
         #endregion Properties
 
@@ -86,26 +75,13 @@
             lock (_locker)
             {
                 Task.Factory
-                    .ContinueWhenAll(new[]
-                    {
-                        Task.Run(async () => 
+                    .ContinueWhenAll(
+                        new[]
                         {
-                            try
-                            {
-                                Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICEs_FILE);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Error("failure loading configuration: " + ex.Message);
-                            }
-                        }),
-
-                        Task.Run(async () => { Card2IssueMapper = await JsonConfig.Read<Mapper<string, int>>(CARD_MAPPER_FILE); }),
-                        Task.Run(async () => { List2StatusMapper = await JsonConfig.Read<Mapper<string, int>>(LIST_MAPPER_FILE); }),
-                        Task.Run(async () => { Label2ProjectMapper = await JsonConfig.Read<Mapper<string, int>>(LABEL_MAPPER_FILE); }),
-                        Task.Run(async () => { Branch2IssueMapper = await JsonConfig.Read<Mapper<string, int>>(BRANCH_MAPPER_FILE); }),
-                        Task.Run(async () => { Field2FieldMapper = await JsonConfig.Read<Mapper<string, CustomField>>(FIELD_MAPPER_FILE); }),
-                    }, s => { })
+                            Task.Run(async () => { await Handle("loading cached", async () => Cached = await JsonConfig.Read<List<KeyValuePair<int, string>>>(CACHED_FILE)); }),
+                            Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); }),
+                        }, 
+                        s => { })
                     .Wait();
             }
         }
@@ -115,17 +91,28 @@
             lock (_locker)
             {
                 Task.Factory
-                    .ContinueWhenAll(new[]
-                    {
-                        Task.Run(async () => await JsonConfig.Write(Settings, SETTING_SERVICEs_FILE)),
-
-                        Task.Run(async () => await JsonConfig.Write(Card2IssueMapper, CARD_MAPPER_FILE)),
-                        Task.Run(async () => await JsonConfig.Write(List2StatusMapper, LIST_MAPPER_FILE)),
-                        Task.Run(async () => await JsonConfig.Write(Label2ProjectMapper, LABEL_MAPPER_FILE)),
-                        Task.Run(async () => await JsonConfig.Write(Branch2IssueMapper, BRANCH_MAPPER_FILE)),
-                        Task.Run(async () => await JsonConfig.Write(Field2FieldMapper, FIELD_MAPPER_FILE)),
-                    }, s => { })
+                    .ContinueWhenAll(
+                        new[]
+                        {
+                            Task.Run(async () => { await Handle("saving cached", async () => await JsonConfig.Write(Cached, CACHED_FILE)); }),
+                            Task.Run(async () => { await Handle("saving configuration", async () => await JsonConfig.Write(Settings, SETTING_SERVICE_FILE)); }),
+                        }, 
+                        s => { })
                     .Wait();
+            }
+        }
+
+        private async Task Handle(string title, Func<Task> action)
+        {
+            try
+            {
+                await action();
+
+                _logger.Info($"success {title} {title}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"failure {title}: " + ex.Message);
             }
         }
 

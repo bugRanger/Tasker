@@ -17,8 +17,7 @@
             LogManager.Configuration ??= new NLog.Config.LoggingConfiguration();
 
             ConfigProvider config = null;
-            ITaskerService service = null;
-            ITaskerStrategy strategy = null;
+            TaskController service = null;
 
             bool stopped = false;
             try
@@ -26,18 +25,23 @@
                 config = new ConfigProvider();
                 config.Load();
 
-                strategy = new TaskerStrategy(config);
+                service = new TaskController();
+                var successCount = service.Load(config.Cached);
 
-                service = new TaskerService(config);
-                service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
-                service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
-                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
+                Console.WriteLine($"Load cached: {successCount}/{config.Cached.Count}");
+
+                TrelloService trello;
+
+                //service.Register(trello = new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                //service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
+                //service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
 
                 while (!stopped)
                 {
                     var restart = false;
 
-                    service.Start(strategy);
+                    //service.Start(strategy);
+                    //trello.Start();
 
                     try
                     {
@@ -65,9 +69,10 @@
                             }
                         }
                     }
-                    finally 
+                    finally
                     {
-                        service.Stop();
+                        //service.Stop();
+                        //trello.Stop();
                     }
                 }
             }
@@ -77,7 +82,10 @@
             }
             finally
             {
-                config?.Save();
+                config.Cached.Clear();
+                config.Cached.AddRange(service.Cached);
+
+                config.Save();
             }
         }
     }
