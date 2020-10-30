@@ -3,6 +3,7 @@
     using System;
     using System.Linq;
     using System.Collections.Generic;
+    using System.Collections.Concurrent;
 
     using Tasker.Interfaces.Task;
     using Tasker.Common.Task;
@@ -43,38 +44,59 @@
                 return;
             }
 
+            var cached = new ConcurrentDictionary<int, string>();
+
             foreach (ITaskService current in _services.ToArray())
             {
-                if (sender.Equals(current))
+                if (owner.Equals(current))
                 {
+                    cached.GetOrAdd(owner.Id, task.Id);
                     continue;
                 }
 
                 var item = new TaskCommon
                 {
-                    Id = _tasks.TryGetValue(GetKey(current, task.Id), out string taskId) ? taskId : null,
+                    Id = _tasks.TryGetValue(GetKey(current.Id, task.Id), out string taskId) ? taskId : null,
                     Context = task.Context,
                 };
 
-                current.Enqueue(new UpdateTask(item, taskItemId => UpdateContainer(_tasks, owner, task.Id, current, taskItemId)));
+                current.Enqueue(new UpdateTask(item, taskId =>
+                {
+                    cached.GetOrAdd(current.Id, taskId);
+                    if (cached.Count == _services.Count)
+                    {
+                        UpdateContainer(_tasks, cached);
+                    }
+                }));
             }
         }
 
         // TODO Move entry container.
-        private static void UpdateContainer(IDictionary<int, string> container, ITaskService source, string sourceTaskId, ITaskService target, string targetTaskId)
+        private static void UpdateContainer(IDictionary<int, string> container, IReadOnlyDictionary<int, string> cached)
         {
-            int keySource = GetKey(source, targetTaskId);
-            int keyTarget = GetKey(target, sourceTaskId);
+            foreach (KeyValuePair<int, string> source in cached)
+            {
+                foreach (KeyValuePair<int, string> target in cached)
+                {
+                    if (source.Key == target.Key)
+                    {
+                        continue;
+                    }
 
-            container[keySource] = sourceTaskId;
-            container[keyTarget] = targetTaskId;
+                    int keySource = GetKey(source.Key, target.Value);
+                    int keyTarget = GetKey(target.Key, source.Value);
+
+                    container[keySource] = source.Value;
+                    container[keyTarget] = target.Value;
+                }
+            }
         }
 
         // TODO Move entry container.
-        private static int GetKey(ITaskService service, string objectId)
+        private static int GetKey(int subjectId, string objectId)
         {
             int hash = 17;
-            hash = hash * 31 + service.Id.GetHashCode();
+            hash = hash * 31 + subjectId.GetHashCode();
             hash = hash * 31 + objectId.GetHashCode();
             return hash;
         }

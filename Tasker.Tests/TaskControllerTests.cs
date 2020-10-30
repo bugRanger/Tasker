@@ -55,7 +55,6 @@ namespace Tasker.Tests
 
                 _services.Add(service);
 
-                // TODO: Use static ID service.
                 service
                     .Setup(x => x.Id)
                     .Returns(index);
@@ -80,11 +79,30 @@ namespace Tasker.Tests
 
             // Act
             _services[0].Raise(x => x.Notify += null, _services[0].Object, new TaskCommon { Id = Convert.ToString(1), Context = new TaskContext() });
+            // Assert
+            //Assert.AreEqual(_tasks.Count, 6);
+            //CollectionAssert.AreEqual(_tasks, new KeyValuePair<int, string> [] 
+            //{
+            //    new KeyValuePair(GetKey(1, "2"), "2" ),
+            //});
+
             _services[1].Raise(x => x.Notify += null, _services[1].Object, new TaskCommon { Id = Convert.ToString(2), Context = new TaskContext() });
             _services[2].Raise(x => x.Notify += null, _services[2].Object, new TaskCommon { Id = Convert.ToString(3), Context = new TaskContext() });
 
+            //_services[1].Raise(x => x.Notify += null, _services[1].Object, new TaskCommon { Id = Convert.ToString(2), Context = new TaskContext() });
+            //_services[2].Raise(x => x.Notify += null, _services[2].Object, new TaskCommon { Id = Convert.ToString(3), Context = new TaskContext() });
+
             // Assert
             _events.Assert();
+        }
+
+        // TODO Move entry container.
+        private static int GetKey(int subjectId, string objectId)
+        {
+            int hash = 17;
+            hash = hash * 31 + subjectId.GetHashCode();
+            hash = hash * 31 + objectId.GetHashCode();
+            return hash;
         }
 
         #endregion Methods
