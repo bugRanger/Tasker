@@ -10,6 +10,8 @@
     using Services.GitLab;
     using Services.Redmine;
 
+    using Tasker.Interfaces.Task;
+
     partial class Program
     {
         static void Main(string[] args)
@@ -30,11 +32,12 @@
 
                 Console.WriteLine($"Load cached: {successCount}/{config.Cached.Count}");
 
-                TrelloService trello;
+                ITaskService trello;
+                ITaskService redmine;
 
                 service.Register(trello = new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                service.Register(redmine = new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
                 //service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
-                //service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
 
                 while (!stopped)
                 {
@@ -42,6 +45,7 @@
 
                     //service.Start(strategy);
                     trello.Start();
+                    redmine.Start();
 
                     try
                     {
@@ -71,7 +75,7 @@
                     }
                     finally
                     {
-                        //service.Stop();
+                        redmine.Stop();
                         trello.Stop();
                     }
                 }

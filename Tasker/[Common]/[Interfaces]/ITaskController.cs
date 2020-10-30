@@ -3,7 +3,7 @@
     using System;
     using System.Collections.Generic;
 
-    using Tasker.Interfaces;
+    using Tasker.Interfaces.Task;
 
     public interface ITaskController
     {

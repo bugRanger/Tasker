@@ -10,16 +10,14 @@
 
     using NLog;
 
-    using Common.Tasks;
     using Framework.Timeline;
 
     using Manatee.Trello;
 
-    using Tasks;
-    using Tasker.Common;
-    using Tasker.Interfaces;
+    using Tasker.Interfaces.Task;
+    using Tasker.Common.Task;
 
-    public class TrelloService : ITaskService, ITrelloVisitor, IDisposable
+    public class TrelloService : ITaskService, ITaskVisitor, IDisposable
     {
         #region Constants
 
@@ -37,7 +35,7 @@
         private Dictionary<string, IBoard> _boards;
         private Dictionary<string, ICard> _cards;
         private Dictionary<string, IList> _lists;
-        private ITaskQueue<ITrelloVisitor> _queue;
+        private ITaskQueue _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
@@ -61,7 +59,7 @@
 
         #region Events
 
-        public event Action<object, ITaskCommon, NotifyAction> Notify;
+        public event Action<object, ITaskCommon> Notify;
 
         #endregion Events
 
@@ -78,7 +76,7 @@
             _cards = new Dictionary<string, ICard>();
 
             _cancellationSource = new CancellationTokenSource();
-            _queue = new TaskQueue<ITrelloVisitor>(task => task.Handle(this), timeline);
+            _queue = new TaskQueue(task => task.Handle(this), timeline);
             _queue.Error += (task, error) => _logger?.Error($"failed task: {task.GetType()}, error: `{error}`");
         }
 
@@ -133,7 +131,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncActionTask<ITrelloVisitor>(SyncBoardCards, _queue, Options.Sync.Interval));
+            Enqueue(new SyncActionTask(SyncBoardCards, _queue, Options.Sync.Interval));
         }
 
         public void Stop()
@@ -145,24 +143,12 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskCommon task, NotifyAction action, Action<ITaskCommon> callback = null)
+        public void Enqueue(ITaskItem task)
         {
-            switch (action)
-            {
-                case NotifyAction.Update:
-                    Enqueue(new UpdateCardTask(task));
-                    break;
-
-                case NotifyAction.Delete:
-                    break;
-
-                default:
-                    break;
-            }
+            _queue.Enqueue(task);
         }
 
-
-        public string Handle(UpdateCardTask task)
+        public string Handle(IUpdateTask task)
         {
             if (string.IsNullOrWhiteSpace(Options.BoardId) ||
                 !_boards.TryGetValue(Options.BoardId, out IBoard board))
@@ -200,11 +186,11 @@
                 _lists[list.Id] = list;
             }
 
-            if (string.IsNullOrWhiteSpace(task.CardId) ||
-                !_cards.TryGetValue(task.CardId, out ICard card))
+            if (string.IsNullOrWhiteSpace(task.Id) ||
+                !_cards.TryGetValue(task.Id, out ICard card))
             {
                 card =
-                    board.Cards.FirstOrDefault(f => f.Id == task.CardId) ??
+                    board.Cards.FirstOrDefault(f => f.Id == task.Id) ??
                     list.Cards.Add(task.Context.Name, ct: _cancellationSource.Token).Result;
 
                 card.Updated += OnCardUpdated;
@@ -223,12 +209,6 @@
             return card.Id;
         }
 
-
-        private void Enqueue(ITaskItem<ITrelloVisitor> task)
-        {
-            _queue.Enqueue(task);
-        }
-
         private bool SyncBoardCards()
         {
             if (_boards.Count == 0)
@@ -240,7 +220,7 @@
 
         private void OnCardUpdated(ICard card, IEnumerable<string> fields)
         {
-            Notify?.Invoke(this, new TaskCommon { Id = card.Id, Context = new TaskContext { Name = card.Name, Desc = card.Description, Status = card.List.Name } }, NotifyAction.Update);
+            Notify?.Invoke(this, new TaskCommon { Id = card.Id, Context = new TaskContext { Name = card.Name, Desc = card.Description, Status = card.List.Name } });
         }
 
         #endregion Methods

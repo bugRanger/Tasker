@@ -11,7 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj" />
+    <ProjectReference Include="..\Tasker.Common\Tasker.Common.csproj" />
+    <ProjectReference Include="..\Tasker.Interfaces\Tasker.Interfaces.csproj" />
   </ItemGroup>
 
 </Project>

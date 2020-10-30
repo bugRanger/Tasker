@@ -9,19 +9,19 @@
 
     using NLog;
 
-    using Common.Tasks;
     using Framework.Timeline;
 
     using RedmineApi.Core;
     using RedmineApi.Core.Types;
 
-    using Tasks;
+    using Tasker.Common.Task;
+    using Tasker.Interfaces.Task;
 
     using ProjectRM = RedmineApi.Core.Types.Project;
     using IssueRM = RedmineApi.Core.Types.Issue;
     using IssueStatusRM = RedmineApi.Core.Types.IssueStatus;
 
-    public class RedmineService : IRedmineService, IRedmineVisitor, IDisposable
+    public class RedmineService : ITaskService, ITaskVisitor, IDisposable
     {
         #region Classes
 
@@ -43,20 +43,24 @@
         #region Fields
 
         private ILogger _logger;
-        private IRedmineBehaviors _strategy;
-        private IRedmineOptions _options;
         private RedmineManager _manager;
         private Dictionary<int, ProjectRM> _projects;
         private Dictionary<int, IssueRM> _issues;
         private Dictionary<int, QueueItem<IssueStatusRM>> _statuses;
-        private ITaskQueue<IRedmineVisitor> _queue;
+        private ITaskQueue _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
 
+        #region Events
+
+        public event Action<object, ITaskCommon> Notify;
+
+        #endregion Events
+
         #region Properties
 
-        public IRedmineOptions Options => _options;
+        public IRedmineOptions Options { get; }
 
         #endregion Properties
 
@@ -66,14 +70,14 @@
         {
             _logger = LogManager.GetCurrentClassLogger();
 
-            _options = options;
+            Options = options;
 
             _projects = new Dictionary<int, ProjectRM>();
             _issues = new Dictionary<int, IssueRM>();
             _statuses = new Dictionary<int, QueueItem<IssueStatusRM>>();
 
             _cancellationSource = new CancellationTokenSource();
-            _queue = new TaskQueue<IRedmineVisitor>(task => task.Handle(this), timeline);
+            _queue = new TaskQueue(task => task.Handle(this), timeline);
             _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`"); ;
         }
 
@@ -92,12 +96,12 @@
             if (_queue.HasEnabled())
                 return;
 
-            _manager = _manager ?? new RedmineManager(_options.Host, _options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
+            _manager ??= new RedmineManager(Options.Host, Options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
-            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncProjects));
-            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncStatuses));
-            Enqueue(new SyncActionTask<IRedmineVisitor>(SyncIssues, _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask(SyncProjects));
+            Enqueue(new SyncActionTask(SyncStatuses));
+            Enqueue(new SyncActionTask(SyncIssues, _queue, Options.Sync.Interval));
         }
 
         public void Stop()
@@ -109,69 +113,39 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<IRedmineVisitor> task)
+        public void Enqueue(ITaskItem task)
         {
             _queue.Enqueue(task);
         }
 
-        public void Register(IRedmineBehaviors behaviors) 
+        public string Handle(IUpdateTask task)
         {
-            _strategy = behaviors;
-        }
+            IssueRM issue = Task.Run(() => _manager.Get<IssueRM>(task.Id.ToString(), null), _cancellationSource.Token).Result;
 
-        public bool Handle(IUpdateWorkTimeTask task)
-        {
-            if (!_issues.TryGetValue(task.IssueId, out var issue))
-                return false;
+            //var statusId = task.StatusId;
+            //// TODO: Продумать как лучше назначать "следующий" статус.
+            //if (statusId == -1)
+            //{
+            //    if (!_statuses.TryGetValue(issue.Status.Id, out var status) || status.Next == null)
+            //    {
+            //        return string.Empty;
+            //    }
 
-            var hours = 
-                task.Hours < _options.EstimatedHoursLowerLimit
-                    ? _options.EstimatedHoursLowerLimit 
-                    : decimal.Round(task.Hours, 1);
+            //    statusId = status.Next.Id;
+            //}
 
-            if (hours == 0)
-                return false;
+            //// TODO Add script for redmine actions on change status.
+            //issue.Status = new IssueStatusRM { Id = statusId };
 
-            Task.Run(() => _manager.Create(new TimeEntry()
-            {
-                Issue = new IdentifiableName() { Id = issue.Id },
-                Project = new IdentifiableName() { Id = issue.Project.Id },
-                Hours = hours,
-                Comments = task.Comments,
-            }),
-            _cancellationSource.Token).Wait();
+            //if (issue.EstimatedHours == null)
+            //    issue.EstimatedHours = Options.EstimatedHoursABS;
 
-            return true;
-        }
-
-        public bool Handle(IUpdateIssueStatusTask task)
-        {
-            IssueRM issue = Task.Run(() => _manager.Get<IssueRM>(task.IssueId.ToString(), null), _cancellationSource.Token).Result;
-
-            var statusId = task.StatusId;
-            // TODO: Продумать как лучше назначать "следующий" статус.
-            if (statusId == -1)
-            {
-                if (!_statuses.TryGetValue(issue.Status.Id, out var status) || status.Next == null)
-                {
-                    return false;
-                }
-
-                statusId = status.Next.Id;
-            }
-
-            // TODO Add script for redmine actions on change status.
-            issue.Status = new IssueStatusRM() { Id = statusId };
-
-            if (issue.EstimatedHours == null)
-                issue.EstimatedHours = _options.EstimatedHoursABS;
-
-            issue = Task.Run(() => _manager.Update(task.IssueId.ToString(), issue), _cancellationSource.Token).Result;
+            issue = Task.Run(() => _manager.Update(task.Id.ToString(), issue), _cancellationSource.Token).Result;
 
             _issues[issue.Id] = issue;
 
             // TODO Add equals property issue.
-            return true;
+            return issue.Id.ToString();
         }
 
         private T[] GetListAll<T>(Func<T, bool> predicate) where T : class, new()
@@ -180,7 +154,7 @@
                 _manager.ListAll<T>(
                     new NameValueCollection()
                     {
-                        { RedmineKeys.ASSIGNED_TO_ID, _options.Sync.UserId.ToString() },
+                        { RedmineKeys.ASSIGNED_TO_ID, Options.Sync.UserId.ToString() },
                     }),
                 _cancellationSource.Token).Result;
 
@@ -196,10 +170,14 @@
             IssueRM[] updates = GetListAll<IssueRM>(issue => !_issues.ContainsKey(issue.Id) || !_issues[issue.Id].Status.Equals(issue.Status));
 
             foreach (IssueRM issue in updates)
+            {
                 _issues[issue.Id] = issue;
-
-            if (updates.Any())
-                _strategy?.UpdateIssues(updates.Select(s => new Issue(s)).ToArray());
+                Notify?.Invoke(this, new TaskCommon
+                {
+                    Id = issue.Id.ToString(),
+                    Context = new TaskContext { Name = issue.Subject, Desc = issue.Description, Status = issue.Status.Name }
+                });
+            }
 
             return true;
         }
@@ -213,9 +191,6 @@
                 _statuses[updates[i].Id] = new QueueItem<IssueStatusRM>(updates[i], i < updates.Length - 1 ? updates[i + 1] : null);
             }
 
-            if (updates.Any())
-                _strategy?.UpdateStatuses(updates.Select(s => new IssueStatus(s)).ToArray());
-
             return true;
         }
 
@@ -225,9 +200,6 @@
 
             foreach (ProjectRM item in updates)
                 _projects[item.Id] = item;
-
-            if (updates.Any())
-                _strategy?.UpdateProjects(updates.Select(s => new Project(s)).ToArray());
 
             return true;
         }

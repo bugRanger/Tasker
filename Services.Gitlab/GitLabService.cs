@@ -8,9 +8,10 @@
 
     using NLog;
 
-    using Common.Tasks;
-
     using Framework.Timeline;
+
+    using Tasker.Common.Task;
+    using Tasker.Interfaces.Task;
 
     using GitLabApiClient;
     using GitLabApiClient.Models.MergeRequests.Requests;
@@ -18,22 +19,28 @@
     using GitLabApiClient.Models.Branches.Requests;
     using GitLabApiClient.Models.Branches.Responses;
 
-    using Tasks;
+    using ResponseBranch = GitLabApiClient.Models.Branches.Responses.Branch;
+    using ResponseMR = GitLabApiClient.Models.MergeRequests.Responses.MergeRequest;
 
-    public class GitLabService : IGitLabService, IGitLabVisitor, IDisposable
+    public class GitLabService : ITaskService, ITaskVisitor, IDisposable
     {
         #region Fields
 
         private ILogger _logger;
         private GitLabClient _client;
         private IGitLabOptions _options;
-        private IGitLabBehaviors _strategy;
-        private Dictionary<int, GitLabApiClient.Models.MergeRequests.Responses.MergeRequest> _requests;
-        private Dictionary<string, GitLabApiClient.Models.Branches.Responses.Branch> _branches;
-        private ITaskQueue<IGitLabVisitor> _queue;
+        private Dictionary<int, ResponseMR> _requests;
+        private Dictionary<string, ResponseBranch> _branches;
+        private ITaskQueue _queue;
         private CancellationTokenSource _cancellationSource;
 
         #endregion Fields
+
+        #region Events
+
+        public event Action<object, ITaskCommon> Notify;
+
+        #endregion Events
 
         #region Properties
 
@@ -49,11 +56,11 @@
 
             _options = options;
 
-            _requests = new Dictionary<int, GitLabApiClient.Models.MergeRequests.Responses.MergeRequest>();
-            _branches = new Dictionary<string, GitLabApiClient.Models.Branches.Responses.Branch>();
+            _requests = new Dictionary<int, ResponseMR>();
+            _branches = new Dictionary<string, ResponseBranch>();
             _cancellationSource = new CancellationTokenSource();
 
-            _queue = new TaskQueue<IGitLabVisitor>(task => task.Handle(this), timeline);
+            _queue = new TaskQueue(task => task.Handle(this), timeline);
             _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`");
         }
 
@@ -75,8 +82,8 @@
             _queue.Start();
 
             //Enqueue(new SyncActionTask<IGitLabVisitor>(() => SyncMergeRequests(opt => opt.AssigneeId = _options.Sync.UserId), _queue, _options.Sync.Interval));
-            Enqueue(new SyncActionTask<IGitLabVisitor>(() => SyncMergeRequests(opt => opt.AuthorId = _options.Sync.UserId), _queue, _options.Sync.Interval));
-            Enqueue(new SyncActionTask<IGitLabVisitor>(() => SyncBranches(opt => opt.Search = _options.Sync.SearchBranches), _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask(() => SyncMergeRequests(opt => opt.AuthorId = _options.Sync.UserId), _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask(() => SyncBranches(opt => opt.Search = _options.Sync.SearchBranches), _queue, _options.Sync.Interval));
         }
 
         public void Stop()
@@ -88,48 +95,43 @@
             _queue.Stop();
         }
 
-        public void Enqueue(ITaskItem<IGitLabVisitor> task)
+        public void Enqueue(ITaskItem task)
         {
             _queue.Enqueue(task);
         }
 
-        public void Register(IGitLabBehaviors behaviors) 
+        public string Handle(IUpdateTask task)
         {
-            _strategy = behaviors;
-        }
+            ResponseMR request = null;
 
-        public int Handle(IUpdateMergeRequestTask task)
-        {
-            GitLabApiClient.Models.MergeRequests.Responses.MergeRequest request = null;
+            //if (!_branches.TryGetValue(task.SourceBranch, out var branch))
+            //{
+            //    _logger?.Debug(() => $"Not found source branch: `{task.SourceBranch}`");
+            //    return 0;
+            //}
 
-            if (!_branches.TryGetValue(task.SourceBranch, out var branch))
-            {
-                _logger?.Debug(() => $"Not found source branch: `{task.SourceBranch}`");
-                return 0;
-            }
+            //if (!task.Id.HasValue || !_requests.TryGetValue(task.Id.Value, out var _))
+            //{
 
-            if (!task.Id.HasValue || !_requests.TryGetValue(task.Id.Value, out var _))
-            {
-
-                request = Task.Run(() =>
-                    _client.MergeRequests.CreateAsync(task.ProjectId, new CreateMergeRequest(task.SourceBranch, task.TargetBranch, branch.Commit.Message)),
-                    _cancellationSource.Token).Result;
-            }
-            else
-            {
-                request = Task.Run(() =>
-                    _client.MergeRequests.UpdateAsync(task.ProjectId, task.Id.Value, new UpdateMergeRequest()
-                    {
-                        Title = branch.Commit.Message,
-                        AssigneeId = _options.AssignedId,
-                        TargetBranch = task.TargetBranch,
-                        RemoveSourceBranch = true,
-                    }),
-                    _cancellationSource.Token).Result;
-            }
+            //    request = Task.Run(() =>
+            //        _client.MergeRequests.CreateAsync(task.ProjectId, new CreateMergeRequest(task.SourceBranch, task.TargetBranch, branch.Commit.Message)),
+            //        _cancellationSource.Token).Result;
+            //}
+            //else
+            //{
+            //    request = Task.Run(() =>
+            //        _client.MergeRequests.UpdateAsync(task.ProjectId, task.Id.Value, new UpdateMergeRequest()
+            //        {
+            //            Title = branch.Commit.Message,
+            //            AssigneeId = _options.AssignedId,
+            //            TargetBranch = task.TargetBranch,
+            //            RemoveSourceBranch = true,
+            //        }),
+            //        _cancellationSource.Token).Result;
+            //}
 
             _requests[request.Id] = request;
-            return request.Id;
+            return request.Id.ToString();
         }
 
         private bool SyncBranches(Action<BranchQueryOptions> expression)
@@ -149,8 +151,6 @@
                 updates
                 .Select(s => new Branch(s.Name, s.Commit.Title))
                 .ToDictionary(k => k.Name);
-
-            _strategy?.UpdateBranches(notifications.Values.ToArray());
 
             updates.ForEach(item =>
             {
@@ -190,13 +190,14 @@
                 })
                 .ToDictionary(k => k.Id);
 
-            _strategy?.UpdateMerges(notifications.Values.ToArray());
-
             updates.ForEach(item =>
             {
                 if (notifications.TryGetValue(item.Id, out var _))
                     _requests[item.Id] = item;
             });
+
+            // TODO Impl.
+            //Notify?.Invoke(this, )
 
             return true;
         }

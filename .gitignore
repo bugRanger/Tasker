@@ -19,3 +19,6 @@
 /Tasker.Common/bin/Debug/netcoreapp3.1
 /Tasker.Tests/bin/Debug/netcoreapp3.1
 /Tasker.Tests/obj
+/Tasker.Interfaces/obj/Debug/netcoreapp3.1
+/Tasker.Interfaces/bin/Debug/netcoreapp3.1
+/Tasker.Interfaces/obj

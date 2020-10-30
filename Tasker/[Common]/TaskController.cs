@@ -3,10 +3,10 @@
     using System;
     using System.Linq;
     using System.Collections.Generic;
-
-    using Tasker.Interfaces;
     using System.Collections.Concurrent;
-    using Tasker.Common;
+
+    using Tasker.Interfaces.Task;
+    using Tasker.Common.Task;
 
     public class TaskController : ITaskController
     {
@@ -56,7 +56,7 @@
             return success;
         }
 
-        private void HandleNotify(object sender, ITaskCommon task, NotifyAction action)
+        private void HandleNotify(object sender, ITaskCommon task)
         {
             if (!(sender is ITaskService owner))
             {
@@ -77,33 +77,25 @@
                     Context = task.Context,
                 };
 
-                current.Enqueue(item, action,
-                    taskItem =>
+                current.Enqueue(new UpdateTask(item, taskItemId =>
+                {
+                    if (string.IsNullOrWhiteSpace(taskItemId))
                     {
-                        int keyOwner = GetKey(owner, taskItem.Id);
-                        int keyCurrent = GetKey(current, task.Id);
+                        // TODO Action and write log.
+                        return;
+                    }
 
-                        if (key != keyCurrent)
-                        {
-                            _cached.Remove(key, out _);
-                        }
+                    int keyOwner = GetKey(owner, taskItemId);
+                    int keyCurrent = GetKey(current, task.Id);
 
-                        switch (action)
-                        {
-                            case NotifyAction.Update:
-                                _cached[keyOwner] = task.Id;
-                                _cached[keyCurrent] = taskItem.Id;
-                                break;
+                    if (key != keyCurrent)
+                    {
+                        _cached.Remove(key, out _);
+                    }
 
-                            case NotifyAction.Delete:
-                                _cached.Remove(keyOwner, out _);
-                                _cached.Remove(keyCurrent, out _);
-                                break;
-
-                            default:
-                                break;
-                        }
-                    });
+                    _cached[keyOwner] = task.Id;
+                    _cached[keyCurrent] = taskItemId;
+                }));
             }
         }
 
