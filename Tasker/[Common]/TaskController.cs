@@ -57,33 +57,24 @@
                     Context = task.Context,
                 };
 
-                current.Enqueue(new UpdateTask(item, taskItemId =>
-                {
-                    if (string.IsNullOrWhiteSpace(taskItemId))
-                    {
-                        // TODO Action and write log.
-                        return;
-                    }
-
-                    int keyOwner = GetKey(owner, taskItemId);
-                    int keyCurrent = GetKey(current, task.Id);
-
-                    if (key != keyCurrent)
-                    {
-                        _tasks.Remove(key, out _);
-                    }
-
-                    _tasks[keyOwner] = task.Id;
-                    _tasks[keyCurrent] = taskItemId;
-                }));
+                current.Enqueue(new UpdateTask(item, taskItemId => UpdateTaskId(owner, task.Id, current, taskItemId)));
             }
         }
 
-        private int GetKey(ITaskService service, string taskId)
+        private void UpdateTaskId(ITaskService source, string sourceTaskId, ITaskService target, string targetTaskId)
+        {
+            int keySource = GetKey(source, targetTaskId);
+            int keyTarget = GetKey(target, sourceTaskId);
+
+            _tasks[keySource] = sourceTaskId;
+            _tasks[keyTarget] = targetTaskId;
+        }
+
+        private int GetKey(ITaskService service, string id)
         {
             int hash = 17;
             hash = hash * 31 + service.GetHashCode();
-            hash = hash * 31 + taskId.GetHashCode();
+            hash = hash * 31 + id.GetHashCode();
             return hash;
         }
 

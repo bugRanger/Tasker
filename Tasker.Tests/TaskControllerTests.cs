@@ -30,6 +30,7 @@ namespace Tasker.Tests
 
         private MethodCallList _events;
         private List<Mock<ITaskService>> _services;
+        private Dictionary<int, string> _tasks;
         private ITaskController _controller;
 
         #endregion Fields
@@ -42,7 +43,9 @@ namespace Tasker.Tests
             _events = new MethodCallList();
 
             _services = new List<Mock<ITaskService>>();
-            _controller = new TaskController();
+            _tasks = new Dictionary<int, string>();
+
+            _controller = new TaskController(_tasks);
 
             for (int i = 0; i < 3; i++)
             {
@@ -58,11 +61,12 @@ namespace Tasker.Tests
                     .Returns(index);
 
                 service
-                    .Setup(x => x.Enqueue(It.IsAny<IUpdateTask>()))
-                    .Callback<IUpdateTask>(task => 
+                    .Setup(x => x.Enqueue(It.IsAny<ITaskItem>()))
+                    .Callback<ITaskItem>(task => 
                     {
                         _events.Add(new EnqueueEntry(task));
-                        //callback?.Invoke(new TaskCommon { Id = Convert.ToString(index), Context = task.Context });
+                        if (task is UpdateTask updateTask)
+                            updateTask.Callback?.Invoke(Convert.ToString(index));
                     });
 
                 _controller.Register(service.Object);
@@ -70,7 +74,7 @@ namespace Tasker.Tests
         }
 
         [Test]
-        public void Test1()
+        public void NotifyTest()
         {
             // Arrage
 

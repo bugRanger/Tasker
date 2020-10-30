@@ -2,13 +2,14 @@
 {
     using System;
 
-    public interface IUpdateTask : ITaskItem
+    public interface IUpdateTask
     {
         #region Properties
 
         public string Id { get; }
 
         public ITaskContext Context { get; }
+
 
         #endregion Properties
     }

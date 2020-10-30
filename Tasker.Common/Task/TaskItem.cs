@@ -14,7 +14,7 @@
 
         #region Properties
 
-        protected Action<TResult> Callback { get; }
+        public Action<TResult> Callback { get; }
 
         #endregion Properties
 
