@@ -18,10 +18,10 @@
 
         #region Constructors
 
-        public TaskController(IDictionary<int, string> taskContainer)
+        public TaskController(IDictionary<int, string> tasks)
         {
             _services = new HashSet<ITaskService>();
-            _tasks = taskContainer;
+            _tasks = tasks;
         }
 
         #endregion Constructors
@@ -50,31 +50,32 @@
                     continue;
                 }
 
-                int key = GetKey(current, task.Id);
                 var item = new TaskCommon
                 {
-                    Id = _tasks.TryGetValue(key, out string taskId) ? taskId : null,
+                    Id = _tasks.TryGetValue(GetKey(current, task.Id), out string taskId) ? taskId : null,
                     Context = task.Context,
                 };
 
-                current.Enqueue(new UpdateTask(item, taskItemId => UpdateTaskId(owner, task.Id, current, taskItemId)));
+                current.Enqueue(new UpdateTask(item, taskItemId => UpdateContainer(_tasks, owner, task.Id, current, taskItemId)));
             }
         }
 
-        private void UpdateTaskId(ITaskService source, string sourceTaskId, ITaskService target, string targetTaskId)
+        // TODO Move entry container.
+        private static void UpdateContainer(IDictionary<int, string> container, ITaskService source, string sourceTaskId, ITaskService target, string targetTaskId)
         {
             int keySource = GetKey(source, targetTaskId);
             int keyTarget = GetKey(target, sourceTaskId);
 
-            _tasks[keySource] = sourceTaskId;
-            _tasks[keyTarget] = targetTaskId;
+            container[keySource] = sourceTaskId;
+            container[keyTarget] = targetTaskId;
         }
 
-        private int GetKey(ITaskService service, string id)
+        // TODO Move entry container.
+        private static int GetKey(ITaskService service, string objectId)
         {
             int hash = 17;
-            hash = hash * 31 + service.GetHashCode();
-            hash = hash * 31 + id.GetHashCode();
+            hash = hash * 31 + service.Id.GetHashCode();
+            hash = hash * 31 + objectId.GetHashCode();
             return hash;
         }
 

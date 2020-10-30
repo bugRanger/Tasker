@@ -60,16 +60,19 @@
 
         #region Properties
 
+        public int Id { get; }
+
         public IRedmineOptions Options { get; }
 
         #endregion Properties
 
         #region Constructors
 
-        public RedmineService(IRedmineOptions options, ITimelineEnvironment timeline)
+        public RedmineService(int id, IRedmineOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
+            Id = id;
             Options = options;
 
             _projects = new Dictionary<int, ProjectRM>();
@@ -148,23 +151,6 @@
             return issue.Id.ToString();
         }
 
-        private T[] GetListAll<T>(Func<T, bool> predicate) where T : class, new()
-        {
-            List<T> list = Task.Run(() => 
-                _manager.ListAll<T>(
-                    new NameValueCollection()
-                    {
-                        { RedmineKeys.ASSIGNED_TO_ID, Options.Sync.UserId.ToString() },
-                    }),
-                _cancellationSource.Token).Result;
-
-            T[] updates = list
-                .Where(predicate)
-                .ToArray();
-
-            return updates;
-        }
-
         private bool SyncIssues()
         {
             IssueRM[] updates = GetListAll<IssueRM>(issue => !_issues.ContainsKey(issue.Id) || !_issues[issue.Id].Status.Equals(issue.Status));
@@ -202,6 +188,23 @@
                 _projects[item.Id] = item;
 
             return true;
+        }
+
+        private T[] GetListAll<T>(Func<T, bool> predicate) where T : class, new()
+        {
+            List<T> list = Task.Run(() =>
+                _manager.ListAll<T>(
+                    new NameValueCollection()
+                    {
+                        { RedmineKeys.ASSIGNED_TO_ID, Options.Sync.UserId.ToString() },
+                    }),
+                _cancellationSource.Token).Result;
+
+            T[] updates = list
+                .Where(predicate)
+                .ToArray();
+
+            return updates;
         }
 
         #endregion Methods

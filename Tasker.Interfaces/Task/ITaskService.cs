@@ -4,6 +4,12 @@
 
     public interface ITaskService 
     {
+        #region Properties
+
+        int Id { get; }
+
+        #endregion Properties
+
         #region Events
 
         event Action<object, ITaskCommon> Notify;

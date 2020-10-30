@@ -28,7 +28,6 @@
 
         private ILogger _logger;
         private GitLabClient _client;
-        private IGitLabOptions _options;
         private Dictionary<int, ResponseMR> _requests;
         private Dictionary<string, ResponseBranch> _branches;
         private ITaskQueue _queue;
@@ -44,17 +43,20 @@
 
         #region Properties
 
-        public IGitLabOptions Options => _options;
+        public int Id { get; }
+
+        public IGitLabOptions Options { get; }
 
         #endregion Properties
 
         #region Constructors
 
-        public GitLabService(IGitLabOptions options, ITimelineEnvironment timeline)
+        public GitLabService(int id, IGitLabOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
-            _options = options;
+            Id = id;
+            Options = options;
 
             _requests = new Dictionary<int, ResponseMR>();
             _branches = new Dictionary<string, ResponseBranch>();
@@ -78,12 +80,12 @@
             if (_queue.HasEnabled())
                 return;
 
-            _client ??= new GitLabClient(_options.Host, _options.Token);
+            _client ??= new GitLabClient(Options.Host, Options.Token);
             _queue.Start();
 
             //Enqueue(new SyncActionTask<IGitLabVisitor>(() => SyncMergeRequests(opt => opt.AssigneeId = _options.Sync.UserId), _queue, _options.Sync.Interval));
-            Enqueue(new SyncActionTask(() => SyncMergeRequests(opt => opt.AuthorId = _options.Sync.UserId), _queue, _options.Sync.Interval));
-            Enqueue(new SyncActionTask(() => SyncBranches(opt => opt.Search = _options.Sync.SearchBranches), _queue, _options.Sync.Interval));
+            Enqueue(new SyncActionTask(() => SyncMergeRequests(opt => opt.AuthorId = Options.Sync.UserId), _queue, Options.Sync.Interval));
+            Enqueue(new SyncActionTask(() => SyncBranches(opt => opt.Search = Options.Sync.SearchBranches), _queue, Options.Sync.Interval));
         }
 
         public void Stop()
@@ -139,7 +141,7 @@
             if (expression == null)
                 return false;
 
-            IList<GitLabApiClient.Models.Branches.Responses.Branch> branches = Task.Run(() => _client.Branches.GetAsync(_options.ProjectId, expression), _cancellationSource.Token).Result;
+            IList<GitLabApiClient.Models.Branches.Responses.Branch> branches = Task.Run(() => _client.Branches.GetAsync(Options.ProjectId, expression), _cancellationSource.Token).Result;
             List<GitLabApiClient.Models.Branches.Responses.Branch> updates = branches
                 .Where(w => !_branches.TryGetValue(w.Name, out var req))
                 .ToList();

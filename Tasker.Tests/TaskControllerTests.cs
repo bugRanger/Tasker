@@ -57,7 +57,7 @@ namespace Tasker.Tests
 
                 // TODO: Use static ID service.
                 service
-                    .Setup(x => x.GetHashCode())
+                    .Setup(x => x.Id)
                     .Returns(index);
 
                 service

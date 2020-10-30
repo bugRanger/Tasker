@@ -42,6 +42,8 @@
 
         #region Properties
 
+        public int Id { get; }
+
         protected IMe User
         {
             get
@@ -65,10 +67,11 @@
 
         #region Constructors
 
-        public TrelloService(ITrelloOptions options, ITimelineEnvironment timeline)
+        public TrelloService(int id, ITrelloOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
+            Id = id;
             Options = options;
 
             _boards = new Dictionary<string, IBoard>();
@@ -150,6 +153,7 @@
 
         public string Handle(IUpdateTask task)
         {
+            // TODO Как мы будем разводтиь понятие ProjectIssue/Board/ProjectMR?
             if (string.IsNullOrWhiteSpace(Options.BoardId) ||
                 !_boards.TryGetValue(Options.BoardId, out IBoard board))
             {

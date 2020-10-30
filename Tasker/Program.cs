@@ -32,8 +32,10 @@
                 ITaskService trello;
                 ITaskService redmine;
 
-                service.Register(trello = new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
-                service.Register(redmine = new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
+                int index = 0;
+
+                service.Register(trello = new TrelloService(++index, config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                service.Register(redmine = new RedmineService(++index, config.Settings.RedmineOptions, TimelineEnvironment.Instance));
                 //service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
 
                 while (!stopped)
