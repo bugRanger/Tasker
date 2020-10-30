@@ -1,8 +1,7 @@
-﻿using System.Threading.Tasks;
-
-namespace Tasker
+﻿namespace Tasker
 {
     using System;
+    using System.Linq;
     using System.Threading.Tasks;
 
     using NLog;
@@ -14,6 +13,7 @@ namespace Tasker
     using Framework.Common;
 
     using System.Collections.Generic;
+    using System.Collections.Concurrent;
 
     public class ConfigProvider
     {
@@ -38,7 +38,7 @@ namespace Tasker
 
         #region Constants
 
-        private const string CACHED_FILE = "cached.json";
+        private const string TASK_CACHED_FILE = "taskCached.json";
         private const string SETTING_SERVICE_FILE = "serviceSettings.json";
 
         #endregion Constants
@@ -55,7 +55,7 @@ namespace Tasker
 
         public SettingServices Settings { get; private set; }
 
-        public List<KeyValuePair<int, string>> Cached { get; private set; }
+        public IDictionary<int, string> Tasks { get; private set; }
 
         #endregion Properties
 
@@ -78,7 +78,7 @@ namespace Tasker
                     .ContinueWhenAll(
                         new[]
                         {
-                            Task.Run(async () => { await Handle("loading cached", async () => Cached = await JsonConfig.Read<List<KeyValuePair<int, string>>>(CACHED_FILE)); }),
+                            Task.Run(async () => { await Handle("loading task cached", async () => Tasks = new ConcurrentDictionary<int, string>(await JsonConfig.Read<List<KeyValuePair<int, string>>>(TASK_CACHED_FILE))); }),
                             Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); }),
                         }, 
                         s => { })
@@ -94,7 +94,7 @@ namespace Tasker
                     .ContinueWhenAll(
                         new[]
                         {
-                            Task.Run(async () => { await Handle("saving cached", async () => await JsonConfig.Write(Cached, CACHED_FILE)); }),
+                            Task.Run(async () => { await Handle("saving task cached", async () => await JsonConfig.Write(Tasks.ToArray(), TASK_CACHED_FILE)); }),
                             Task.Run(async () => { await Handle("saving configuration", async () => await JsonConfig.Write(Settings, SETTING_SERVICE_FILE)); }),
                         }, 
                         s => { })

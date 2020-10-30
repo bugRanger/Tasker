@@ -27,10 +27,7 @@
                 config = new ConfigProvider();
                 config.Load();
 
-                service = new TaskController();
-                var successCount = service.Load(config.Cached);
-
-                Console.WriteLine($"Load cached: {successCount}/{config.Cached.Count}");
+                service = new TaskController(config.Tasks);
 
                 ITaskService trello;
                 ITaskService redmine;
@@ -86,9 +83,7 @@
             }
             finally
             {
-                config.Cached.Clear();
-                config.Cached.AddRange(service.Cached);
-
+                config.Tasks.Add(1, "111");
                 config.Save();
             }
         }

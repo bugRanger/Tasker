@@ -3,7 +3,6 @@
     using System;
     using System.Linq;
     using System.Collections.Generic;
-    using System.Collections.Concurrent;
 
     using Tasker.Interfaces.Task;
     using Tasker.Common.Task;
@@ -13,22 +12,16 @@
         #region Fields
 
         private readonly HashSet<ITaskService> _services;
-        private readonly ConcurrentDictionary<int, string> _cached;
+        private readonly IDictionary<int, string> _tasks;
 
         #endregion Fields
 
-        #region Properties
-
-        public IEnumerable<KeyValuePair<int, string>> Cached => _cached;
-
-        #endregion Properties
-
         #region Constructors
 
-        public TaskController()
+        public TaskController(IDictionary<int, string> taskContainer)
         {
             _services = new HashSet<ITaskService>();
-            _cached = new ConcurrentDictionary<int, string>();
+            _tasks = taskContainer;
         }
 
         #endregion Constructors
@@ -41,19 +34,6 @@
                 return;
 
             service.Notify += HandleNotify;
-        }
-
-        public int Load(IEnumerable<KeyValuePair<int, string>> cached)
-        {
-            int success = 0;
-
-            foreach (var item in cached)
-            {
-                if (_cached.TryAdd(item.Key, item.Value))
-                    success++;
-            }
-
-            return success;
         }
 
         private void HandleNotify(object sender, ITaskCommon task)
@@ -73,7 +53,7 @@
                 int key = GetKey(current, task.Id);
                 var item = new TaskCommon
                 {
-                    Id = _cached.TryGetValue(key, out string taskId) ? taskId : null,
+                    Id = _tasks.TryGetValue(key, out string taskId) ? taskId : null,
                     Context = task.Context,
                 };
 
@@ -90,11 +70,11 @@
 
                     if (key != keyCurrent)
                     {
-                        _cached.Remove(key, out _);
+                        _tasks.Remove(key, out _);
                     }
 
-                    _cached[keyOwner] = task.Id;
-                    _cached[keyCurrent] = taskItemId;
+                    _tasks[keyOwner] = task.Id;
+                    _tasks[keyCurrent] = taskItemId;
                 }));
             }
         }
