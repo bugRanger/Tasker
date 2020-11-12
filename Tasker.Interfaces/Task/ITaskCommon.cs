@@ -4,7 +4,7 @@
 
     public interface ITaskCommon
     {
-        string Id { get; }
+        string ExternalId { get; }
 
         ITaskContext Context { get; }
     }

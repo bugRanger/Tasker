@@ -81,6 +81,14 @@
             return _locker.IsEnabled;
         }
 
+        public bool IsEmpty()
+        {
+            var waiter = new ManualResetEvent(false);
+
+            _queueTask.Enqueue(new SyncActionTask(() => waiter.Set()));
+            return waiter.WaitOne();
+        }
+
         private void HandleTask()
         {
             while (_locker.IsEnabled)

@@ -4,12 +4,34 @@
 
     using Tasker.Interfaces.Task;
 
-    public class TaskContext : ITaskContext
+    public class TaskContext : ITaskContext, IEquatable<ITaskContext>
     {
-        public string Status { get; set; }
+        #region Properties
+
+        public string Id { get; set; }
 
         public string Name { get; set; }
 
-        public string Desc { get; set; }
+        public string Description { get; set; }
+
+        public TaskState Status { get; set; }
+
+        public TaskKind Kind { get; set; }
+
+        #endregion Properties
+
+        #region Methods
+
+        public bool Equals(ITaskContext other)
+        {
+            return other != null
+                && Id == other.Id
+                && Name == other.Name
+                && Description == other.Description
+                && Kind == other.Kind
+                && Status == other.Status;
+        }
+
+        #endregion Methods
     }
 }

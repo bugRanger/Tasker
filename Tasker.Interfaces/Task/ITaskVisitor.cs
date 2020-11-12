@@ -4,6 +4,6 @@
 
     public interface ITaskVisitor
     {
-        string Handle(IUpdateTask task);
+        string Handle(ITaskCommon task);
     }
 }

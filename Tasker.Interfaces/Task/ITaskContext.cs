@@ -4,10 +4,14 @@
 
     public interface ITaskContext
     {
-        string Status { get; }
+        string Id { get; }
 
         string Name { get; }
 
-        string Desc { get; }
+        string Description { get; }
+
+        TaskKind Kind { get; }
+
+        TaskState Status { get; }
     }
 }

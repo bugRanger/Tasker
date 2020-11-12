@@ -1,18 +1,13 @@
 ﻿namespace Tasker.Interfaces.Task
 {
     using System;
+    using System.Collections.Generic;
 
     public interface ITaskService 
     {
-        #region Properties
-
-        int Id { get; }
-
-        #endregion Properties
-
         #region Events
 
-        event Action<object, ITaskCommon> Notify;
+        event Action<object, ITaskCommon, IEnumerable<string>> Notify;
 
         #endregion Events
 
