@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Framework" Version="1.0.12" />
+    <PackageReference Include="NLog" Version="4.7.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Services.Gitlab\Services.Gitlab.csproj" />
+    <ProjectReference Include="..\Services.Redmine\Services.Redmine.csproj" />
+    <ProjectReference Include="..\Services.Trello\Services.Trello.csproj" />
+    <ProjectReference Include="..\Tasker.Common\Tasker.Common.csproj" />
+  </ItemGroup>
+
+</Project>

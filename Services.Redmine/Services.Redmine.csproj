@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Framework" Version="1.0.12" />
+    <PackageReference Include="NLog" Version="4.7.5" />
+    <PackageReference Include="redmine-netcore10-api" Version="2.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tasker.Common\Tasker.Common.csproj" />
+    <ProjectReference Include="..\Tasker.Interfaces\Tasker.Interfaces.csproj" />
+  </ItemGroup>
+
+</Project>
