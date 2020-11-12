@@ -7,23 +7,35 @@
 
     public class SyncActionTask : TaskItem<bool>
     {
+        #region Constants
+
         private const int DEFAULT_INTERVAL = 100;
 
-        private Func<bool> Action { get; }
+        #endregion Constants
+
+        #region Fields
+
+        private readonly Func<bool> _action;
 
         private readonly ITaskQueue _queue;
 
+        #endregion Fields
+
+        #region Properties
+
         public int? Interval { get; }
 
-        public SyncActionTask(SyncActionTask task) : this(task.Action, task._queue, task.Interval, task.Callback)
+        #endregion Properties
+
+        public SyncActionTask(SyncActionTask task) : this(task._action, task._queue, task.Interval, task.Callback)
         {
         }
 
         public SyncActionTask(Func<bool> action, ITaskQueue queue = null, int? interval = null, Action<bool> callback = null) : base(callback)
         {
             Interval = interval;
-            Action = action;
 
+            _action = action;
             _queue = queue;
         }
 
@@ -31,17 +43,25 @@
         {
             try
             {
-                return Action?.Invoke() ?? false;
+                return _action?.Invoke() ?? false;
             }
             finally
             {
                 if (_queue?.HasEnabled() == true)
                 {
-                    _ = Task.Run(async () =>
+
+                    if (Interval == 0)
                     {
-                        await Task.Delay(Interval ?? DEFAULT_INTERVAL);
                         _queue.Enqueue(new SyncActionTask(this));
-                    });
+                    }
+                    else
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(Interval ?? DEFAULT_INTERVAL);
+                            _queue.Enqueue(new SyncActionTask(this));
+                        });
+                    }
                 }
             }
         }
