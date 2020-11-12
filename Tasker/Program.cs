@@ -7,10 +7,8 @@
     using Framework.Timeline;
 
     using Services.Trello;
-    using Services.GitLab;
+    using Services.Gitlab;
     using Services.Redmine;
-
-    using Tasker.Interfaces.Task;
 
     partial class Program
     {
@@ -29,22 +27,15 @@
 
                 service = new TaskController(config.Tasks);
 
-                ITaskService trello;
-                ITaskService redmine;
-
-                int index = 0;
-
-                service.Register(trello = new TrelloService(++index, config.Settings.TrelloOptions, TimelineEnvironment.Instance));
-                service.Register(redmine = new RedmineService(++index, config.Settings.RedmineOptions, TimelineEnvironment.Instance));
-                //service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
+                service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
+                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
+                service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
 
                 while (!stopped)
                 {
                     var restart = false;
 
-                    //service.Start(strategy);
-                    trello.Start();
-                    redmine.Start();
+                    service.Start();
 
                     try
                     {
@@ -74,8 +65,7 @@
                     }
                     finally
                     {
-                        redmine.Stop();
-                        trello.Stop();
+                        service.Stop();
                     }
                 }
             }
@@ -85,7 +75,6 @@
             }
             finally
             {
-                config.Tasks.Add(1, "111");
                 config.Save();
             }
         }

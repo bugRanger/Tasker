@@ -6,11 +6,13 @@
 
     using NLog;
 
-    using Services.GitLab;
+    using Services.Gitlab;
     using Services.Trello;
     using Services.Redmine;
 
     using Framework.Common;
+
+    using Tasker.Common.Task;
 
     using System.Collections.Generic;
     using System.Collections.Concurrent;
@@ -19,19 +21,13 @@
     {
         #region Classes
 
-        public class SettingServices : ISettingServices
+        public class SettingServices
         {
             public TrelloOptions TrelloOptions { get; set; }
 
             public GitLabOptions GitLabOptions { get; set; }
 
             public RedmineOptions RedmineOptions { get; set; }
-
-            ITrelloOptions ISettingServices.TrelloOptions => TrelloOptions;
-
-            IGitLabOptions ISettingServices.GitLabOptions => GitLabOptions;
-
-            IRedmineOptions ISettingServices.RedmineOptions => RedmineOptions;
         }
 
         #endregion Classes
@@ -55,7 +51,7 @@
 
         public SettingServices Settings { get; private set; }
 
-        public IDictionary<int, string> Tasks { get; private set; }
+        public IDictionary<int, TaskCommon> Tasks { get; private set; }
 
         #endregion Properties
 
@@ -78,7 +74,7 @@
                     .ContinueWhenAll(
                         new[]
                         {
-                            Task.Run(async () => { await Handle("loading task cached", async () => Tasks = new ConcurrentDictionary<int, string>(await JsonConfig.Read<List<KeyValuePair<int, string>>>(TASK_CACHED_FILE))); }),
+                            Task.Run(async () => { await Handle("loading task cached", async () => Tasks = new ConcurrentDictionary<int, TaskCommon>(await JsonConfig.Read<List<KeyValuePair<int, TaskCommon>>>(TASK_CACHED_FILE))); }),
                             Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); }),
                         }, 
                         s => { })

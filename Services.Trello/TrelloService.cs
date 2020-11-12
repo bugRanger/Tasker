@@ -14,8 +14,8 @@
 
     using Manatee.Trello;
 
-    using Tasker.Interfaces.Task;
     using Tasker.Common.Task;
+    using Tasker.Interfaces.Task;
 
     public class TrelloService : ITaskService, ITaskVisitor, IDisposable
     {
@@ -29,27 +29,28 @@
 
         #region Fields
 
-        private ILogger _logger;
+        private readonly ILogger _logger;
+
+        private readonly CancellationTokenSource _cancellationSource;
+
+        private readonly TaskQueue _queue;
+
+        private readonly Dictionary<string, IBoard> _boards;
+        private readonly Dictionary<string, ICard> _cards;
+        private readonly Dictionary<TaskState, IList> _lists;
+
         private IMe _user;
-        private TrelloFactory _factory;
-        private Dictionary<string, IBoard> _boards;
-        private Dictionary<string, ICard> _cards;
-        private Dictionary<string, IList> _lists;
-        private ITaskQueue _queue;
-        private CancellationTokenSource _cancellationSource;
+        private ITrelloFactory _factory;
 
         #endregion Fields
 
         #region Properties
 
-        public int Id { get; }
-
         protected IMe User
         {
             get
             {
-                _user = _user ?? _factory.Me(ct: _cancellationSource.Token).Result;
-                return _user;
+                return _user ??= _factory.Me(ct: _cancellationSource.Token).Result;
             }
         }
 
@@ -61,22 +62,27 @@
 
         #region Events
 
-        public event Action<object, ITaskCommon> Notify;
+        public event Action<object, ITaskCommon, IEnumerable<string>> Notify;
 
         #endregion Events
 
         #region Constructors
 
-        public TrelloService(int id, ITrelloOptions options, ITimelineEnvironment timeline)
+        public TrelloService(ITrelloOptions options, ITimelineEnvironment timeline, ITrelloFactory factory)
+            : this(options, timeline)
+        {
+            _factory = factory;
+        }
+
+        public TrelloService(ITrelloOptions options, ITimelineEnvironment timeline)
         {
             _logger = LogManager.GetCurrentClassLogger();
 
-            Id = id;
             Options = options;
 
             _boards = new Dictionary<string, IBoard>();
-            _lists = new Dictionary<string, IList>();
             _cards = new Dictionary<string, ICard>();
+            _lists = new Dictionary<TaskState, IList>();
 
             _cancellationSource = new CancellationTokenSource();
             _queue = new TaskQueue(task => task.Handle(this), timeline);
@@ -116,11 +122,11 @@
 
             Manatee.Trello.Action.DownloadedFields |= Manatee.Trello.Action.Fields.Reactions;
 
-            Manatee.Trello.List.DownloadedFields =
-                Manatee.Trello.List.Fields.Board |
-                Manatee.Trello.List.Fields.Name |
-                Manatee.Trello.List.Fields.IsClosed |
-                Manatee.Trello.List.Fields.Position;
+            List.DownloadedFields =
+                List.Fields.Board |
+                List.Fields.Name |
+                List.Fields.IsClosed |
+                List.Fields.Position;
 
             Card.DownloadedFields =
                 Card.Fields.Actions |
@@ -151,7 +157,25 @@
             _queue.Enqueue(task);
         }
 
-        public string Handle(IUpdateTask task)
+        public string Handle(ITaskCommon task)
+        {
+            IBoard board = BoardGetOrAdd();
+            IList list = ListGetOrAdd(board, task.Context.Status);
+            ICard card = CardGetOrAdd(board, list, task);
+
+            if (card.List?.Id != list.Id)
+                card.List = list;
+
+            if (!string.IsNullOrWhiteSpace(task.Context.Name) && card.Name != task.Context.Name)
+                card.Name = task.Context.Name;
+
+            if (!string.IsNullOrWhiteSpace(task.Context.Description) && card.Description != task.Context.Description)
+                card.Description = task.Context.Description;
+
+            return card.Id;
+        }
+
+        private IBoard BoardGetOrAdd()
         {
             // TODO Как мы будем разводтиь понятие ProjectIssue/Board/ProjectMR?
             if (string.IsNullOrWhiteSpace(Options.BoardId) ||
@@ -163,12 +187,12 @@
                     User.Boards.FirstOrDefault(f => f.Id == Options.BoardId) ??
                     User.Boards.Add(Options.BoardName, ct: _cancellationSource.Token).Result;
 
+                Options.BoardId = board.Id;
+
                 // TODO: Добавить обработку/запись исключений для каждой задачи.
                 Task.Factory
                     .ContinueWhenAll(new[]
                     {
-                        board.CustomFields.Refresh(ct: _cancellationSource.Token),
-                        board.Labels.Refresh(ct: _cancellationSource.Token),
                         board.Lists.Refresh(ct: _cancellationSource.Token),
                         board.Cards.Refresh(ct: _cancellationSource.Token),
                     }, s => { })
@@ -177,40 +201,45 @@
                 foreach (IList item in board.Lists)
                     item.IsArchived = true;
 
-                _boards[board.Id] = board;
+                var states = Enum.GetValues(typeof(TaskState)).Cast<TaskState>();
+                foreach (var item in states.Reverse())
+                {
+                    var list = board.Lists.Add(item.ToString(), ct: _cancellationSource.Token).Result;
+                    _lists[item] = list;
+                }
             }
 
-            if (string.IsNullOrWhiteSpace(task.Context.Status) ||
-                !_lists.TryGetValue(task.Context.Status, out IList list))
+            _boards[board.Id] = board;
+            return _boards[board.Id];
+        }
+
+        private IList ListGetOrAdd(IBoard board, TaskState status)
+        {
+            if (!_lists.TryGetValue(status, out IList list))
             {
                 list =
-                    board.Lists.FirstOrDefault(f => f.Name == task.Context.Status) ??
-                    board.Lists.Add(task.Context.Status, ct: _cancellationSource.Token).Result;
-
-                _lists[list.Id] = list;
+                    board.Lists.FirstOrDefault(f => f.Name == status.ToString()) ??
+                    board.Lists.Add(status.ToString(), ct: _cancellationSource.Token).Result;
             }
 
-            if (string.IsNullOrWhiteSpace(task.Id) ||
-                !_cards.TryGetValue(task.Id, out ICard card))
+            _lists[status] = list;
+            return _lists[status];
+        }
+
+        private ICard CardGetOrAdd(IBoard board, IList list, ITaskCommon task)
+        {
+            if (string.IsNullOrWhiteSpace(task.ExternalId) ||
+                !_cards.TryGetValue(task.ExternalId, out ICard card))
             {
                 card =
-                    board.Cards.FirstOrDefault(f => f.Id == task.Id) ??
-                    list.Cards.Add(task.Context.Name, ct: _cancellationSource.Token).Result;
+                    board.Cards.FirstOrDefault(f => f.Id == task.ExternalId) ??
+                    list.Cards.Add(name: task.Context.Name, description: task.Context.Description, ct: _cancellationSource.Token).Result;
 
                 card.Updated += OnCardUpdated;
             }
 
-            if (card.List?.Id != list.Id)
-                card.List = list;
-
-            if (!string.IsNullOrWhiteSpace(task.Context.Name) && card.Name != task.Context.Name)
-                card.Name = task.Context.Name;
-
-            if (!string.IsNullOrWhiteSpace(task.Context.Desc) && card.Description != task.Context.Desc)
-                card.Description = task.Context.Desc;
-
             _cards[card.Id] = card;
-            return card.Id;
+            return card;
         }
 
         private bool SyncBoardCards()
@@ -224,8 +253,29 @@
 
         private void OnCardUpdated(ICard card, IEnumerable<string> fields)
         {
-            Notify?.Invoke(this, new TaskCommon { Id = card.Id, Context = new TaskContext { Name = card.Name, Desc = card.Description, Status = card.List.Name } });
+            if (!fields.Any(a => a == nameof(ICard.Name) || a == nameof(ICard.Description) || a == nameof(ICard.List)))
+                return;
+
+            Notify?.Invoke(this, 
+                new TaskCommon 
+                { 
+                    ExternalId = card.Id, 
+                    Context = new TaskContext
+                    {
+                        Name = card.Name,
+                        Description = card.Description,
+                        Status = Enum.TryParse<TaskState>(card.List.Name, true, out var state) ? state : TaskState.New
+                    },
+                },
+                new string[] 
+                {
+                    nameof(TaskContext.Name),
+                    nameof(TaskContext.Description),
+                    nameof(TaskContext.Status),
+                });
         }
+
+        public void WaitSync() => _queue.IsEmpty();
 
         #endregion Methods
     }

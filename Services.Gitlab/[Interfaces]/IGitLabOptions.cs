@@ -1,4 +1,4 @@
-﻿namespace Services.GitLab
+﻿namespace Services.Gitlab
 {
     public interface IGitLabOptions
     {
@@ -12,7 +12,7 @@
 
         string Token { get; }
 
-        IGitLabSync Sync { get; }
+        IGitlabSync Sync { get; }
 
         #endregion Properties
     }

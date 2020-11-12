@@ -1,6 +1,6 @@
-﻿namespace Services.GitLab
+﻿namespace Services.Gitlab
 {
-    public interface IGitLabSync 
+    public interface IGitlabSync 
     {
         int Interval { get; }
 

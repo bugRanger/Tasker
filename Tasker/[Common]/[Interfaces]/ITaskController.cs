@@ -10,6 +10,10 @@
 
         void Register(ITaskService service);
 
+        void Start();
+
+        void Stop();
+
         #endregion Methods
     }
 }

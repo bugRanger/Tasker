@@ -1,8 +1,6 @@
-﻿using Framework.Common;
-
-namespace Services.GitLab
+﻿namespace Services.Gitlab
 {
-    public class GitLabOptions : IGitLabOptions, IGitLabSync
+    public class GitLabOptions : IGitLabOptions, IGitlabSync
     {
         #region Properties
 
@@ -10,7 +8,7 @@ namespace Services.GitLab
 
         public string Token { get; set; }
 
-        IGitLabSync IGitLabOptions.Sync => this;
+        IGitlabSync IGitLabOptions.Sync => this;
 
         public int Interval { get; set; }
 

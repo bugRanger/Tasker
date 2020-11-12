@@ -2,8 +2,10 @@
 {
     using System;
     using System.Linq;
+    using System.Text;
     using System.Collections.Generic;
     using System.Collections.Concurrent;
+    using System.Security.Cryptography;
 
     using Tasker.Interfaces.Task;
     using Tasker.Common.Task;
@@ -12,16 +14,16 @@
     {
         #region Fields
 
-        private readonly HashSet<ITaskService> _services;
-        private readonly IDictionary<int, string> _tasks;
+        private readonly IDictionary<ITaskService, int> _services;
+        private readonly IDictionary<int, TaskCommon> _tasks;
 
         #endregion Fields
 
         #region Constructors
 
-        public TaskController(IDictionary<int, string> tasks)
+        public TaskController(IDictionary<int, TaskCommon> tasks)
         {
-            _services = new HashSet<ITaskService>();
+            _services = new Dictionary<ITaskService, int>();
             _tasks = tasks;
         }
 
@@ -31,54 +33,109 @@
 
         public void Register(ITaskService service)
         {
-            if (!_services.Add(service))
+            if (!_services.TryAdd(service, _services.Count + 1))
                 return;
 
             service.Notify += HandleNotify;
         }
 
-        private void HandleNotify(object sender, ITaskCommon task)
+
+        public void Start()
         {
-            if (!(sender is ITaskService owner))
+            foreach (var service in _services.Keys.ToArray())
+            {
+                service.Start();
+            }
+        }
+
+        public void Stop()
+        {
+            foreach (var service in _services.Keys.ToArray().Reverse())
+            {
+                service.Stop();
+            }
+        }
+
+        private void HandleNotify(object sender, ITaskCommon task, IEnumerable<string> properties)
+        {
+            if (!(sender is ITaskService owner) || 
+                !_services.TryGetValue(owner, out var ownerId))
             {
                 return;
             }
 
             var cached = new ConcurrentDictionary<int, string>();
-
-            foreach (ITaskService current in _services.ToArray())
+            foreach (var current in _services.ToArray())
             {
-                if (owner.Equals(current))
+                if (owner.Equals(current.Key))
                 {
-                    cached.GetOrAdd(owner.Id, task.Id);
+                    cached.GetOrAdd(ownerId, task.ExternalId);
                     continue;
                 }
 
-                var item = new TaskCommon
+                if (!_tasks.TryGetValue(GetKey(current.Value, task.ExternalId), out var taskCurrent))
                 {
-                    Id = _tasks.TryGetValue(GetKey(current.Id, task.Id), out string taskId) ? taskId : null,
-                    Context = task.Context,
-                };
+                    taskCurrent = new TaskCommon();
+                }
 
-                current.Enqueue(new UpdateTask(item, taskId =>
+                ApplyPatch(task.Context, taskCurrent.Context, properties);
+
+                current.Key.Enqueue(new UpdateTask(taskCurrent, taskId =>
                 {
-                    cached.GetOrAdd(current.Id, taskId);
+                    cached.GetOrAdd(current.Value, taskId);
                     if (cached.Count == _services.Count)
                     {
-                        UpdateContainer(_tasks, cached);
+                        UpdateContainer(_tasks, cached, taskCurrent.Context);
                     }
                 }));
             }
         }
 
+        private static void ApplyPatch(ITaskContext source, TaskContext target, IEnumerable<string> properties)
+        {
+            foreach (var property in properties)
+            {
+                switch (property)
+                {
+                    case nameof(ITaskContext.Id):
+                        target.Id = source.Id;
+                        break;
+
+                    case nameof(ITaskContext.Name):
+                        target.Name = source.Name;
+                        break;
+
+                    case nameof(ITaskContext.Description):
+                        target.Description = source.Description;
+                        break;
+
+                    case nameof(ITaskContext.Kind):
+                        target.Kind = source.Kind;
+                        break;
+
+                    case nameof(ITaskContext.Status):
+                        target.Status = source.Status;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        }
+
         // TODO Move entry container.
-        private static void UpdateContainer(IDictionary<int, string> container, IReadOnlyDictionary<int, string> cached)
+        private static void UpdateContainer(IDictionary<int, TaskCommon> container, IReadOnlyDictionary<int, string> cached, TaskContext context)
         {
             foreach (KeyValuePair<int, string> source in cached)
             {
+                if (string.IsNullOrWhiteSpace(source.Value))
+                {
+                    continue;
+                }
+
                 foreach (KeyValuePair<int, string> target in cached)
                 {
-                    if (source.Key == target.Key)
+                    if (source.Key == target.Key || string.IsNullOrWhiteSpace(target.Value))
                     {
                         continue;
                     }
@@ -86,18 +143,21 @@
                     int keySource = GetKey(source.Key, target.Value);
                     int keyTarget = GetKey(target.Key, source.Value);
 
-                    container[keySource] = source.Value;
-                    container[keyTarget] = target.Value;
+                    container[keySource] = new TaskCommon { ExternalId = source.Value, Context = context };
+                    container[keyTarget] = new TaskCommon { ExternalId = target.Value, Context = context };
                 }
             }
         }
 
         // TODO Move entry container.
-        private static int GetKey(int subjectId, string objectId)
+        public static int GetKey(int subjectId, string objectId)
         {
+            using var sha = MD5.Create();
+
             int hash = 17;
-            hash = hash * 31 + subjectId.GetHashCode();
-            hash = hash * 31 + objectId.GetHashCode();
+            hash = hash * 31 + BitConverter.ToInt32(sha.ComputeHash(Encoding.UTF8.GetBytes(subjectId.ToString())), 0);
+            hash = hash * 31 + BitConverter.ToInt32(sha.ComputeHash(Encoding.UTF8.GetBytes(objectId)), 0);
+
             return hash;
         }
 
