@@ -106,7 +106,7 @@
 
                     try
                     {
-                        if (task.Interval.HasValue && _timeline.TickCount - task.LastTime < task.Interval)
+                        if (task.Interval.HasValue && startTime - task.LastTime > task.Interval * 100)
                         {
                             _queueTask.Enqueue(task);
                             continue;
@@ -122,7 +122,7 @@
                     {
                         if (task.Interval.HasValue)
                         {
-                            task.LastTime = _timeline.TickCount;
+                            task.LastTime = startTime + _wait;
                             _queueTask.Enqueue(task);
                         }
                     }
