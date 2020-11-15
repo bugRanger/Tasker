@@ -31,41 +31,31 @@
                 service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
                 service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
 
+                service.Start();
+
                 while (!stopped)
                 {
-                    var restart = false;
-
-                    service.Start();
-
-                    try
+                    while (!stopped)
                     {
-                        while (!restart && !stopped)
+                        Console.WriteLine("Press key Q for stopped");
+                        Console.WriteLine("Press key S for setting");
+
+                        var keyInfo = Console.ReadKey();
+
+                        switch (keyInfo.Key)
                         {
-                            Console.WriteLine("Press key Q for stopped");
-                            Console.WriteLine("Press key S for setting");
+                            case ConsoleKey.Q:
+                                stopped = true;
+                                break;
 
-                            var keyInfo = Console.ReadKey();
+                            case ConsoleKey.S:
+                                // TODO: Impl.
+                                //strategy new ConfigurationStrategy();
+                                break;
 
-                            switch (keyInfo.Key)
-                            {
-                                case ConsoleKey.Q:
-                                    stopped = true;
-                                    break;
-
-                                case ConsoleKey.S:
-                                    // TODO: Impl.
-                                    //strategy new ConfigurationStrategy();
-                                    //restart = true;
-                                    break;
-
-                                default:
-                                    break;
-                            }
+                            default:
+                                break;
                         }
-                    }
-                    finally
-                    {
-                        service.Stop();
                     }
                 }
             }
@@ -75,6 +65,7 @@
             }
             finally
             {
+                service.Stop();
                 config.Save();
             }
         }
