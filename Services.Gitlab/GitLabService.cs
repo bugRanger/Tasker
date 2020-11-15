@@ -24,6 +24,8 @@
 
         private readonly ILogger _logger;
 
+        private readonly ITimelineEnvironment _timeline;
+
         private readonly CancellationTokenSource _cancellationSource;
 
         private readonly TaskQueue _queue;
@@ -35,17 +37,17 @@
 
         #endregion Fields
 
-        #region Events
-
-        public event Action<object, ITaskCommon, IEnumerable<string>> Notify;
-
-        #endregion Events
-
         #region Properties
 
         public IGitLabOptions Options { get; }
 
         #endregion Properties
+
+        #region Events
+
+        public event Action<object, ITaskCommon, IEnumerable<string>> Notify;
+
+        #endregion Events
 
         #region Constructors
 
@@ -61,6 +63,7 @@
 
             Options = options;
 
+            _timeline = timeline;
             _branches = new Dictionary<string, Branch>();
             _requests = new Dictionary<string, MergeRequest>();
             _cancellationSource = new CancellationTokenSource();
@@ -86,8 +89,8 @@
             _proxy ??= new GitlabProxy(Options.Host, Options.Token);
             _queue.Start();
 
-            Enqueue(new SyncActionTask(() => SyncBranches(opt => opt.Search = Options.Sync.SearchBranches), _queue, Options.Sync.Interval));
-            Enqueue(new SyncActionTask(() => SyncMergeRequests(opt => opt.AuthorId = Options.Sync.UserId), _queue, Options.Sync.Interval));
+            Enqueue(new ActionTask(() => SyncBranches(opt => opt.Search = Options.Sync.SearchBranches), Options.Sync.Interval) { LastTime = _timeline.TickCount });
+            Enqueue(new ActionTask(() => SyncMergeRequests(opt => opt.AuthorId = Options.Sync.UserId), Options.Sync.Interval) { LastTime = _timeline.TickCount });
         }
 
         public void Stop()

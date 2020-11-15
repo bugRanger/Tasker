@@ -82,12 +82,17 @@ namespace Tasker.Tests
             {
                 AppKey = "apy-key",
                 Token = "api-token",
+                Interval = 0,
             };
             var gitlabOptions = new GitLabOptions
             {
                 ProjectId = 1,
+                Interval = 0,
             };
-            var redmineOptions = new RedmineOptions();
+            var redmineOptions = new RedmineOptions()
+            {
+                Interval = 0,
+            };
 
             _controller.Register(_trello = new TrelloService(trelloOptions, TimelineEnvironment.Instance, _trelloMoq.Factory.Object));
             _controller.Register(_redmine = new RedmineService(redmineOptions, TimelineEnvironment.Instance, _redmineMoq.Proxy.Object));
@@ -219,8 +224,8 @@ namespace Tasker.Tests
             _gitlab.WaitSync();
 
             // Assert
-            CollectionAssert.AreEqual(expected, _tasks);
             Assert.AreEqual(newStatus.ToString(), card.List.Name);
+            CollectionAssert.AreEqual(expected, _tasks);
 
             _gitlabEvents.Assert();
             _redmineEvents.Assert(
@@ -265,8 +270,8 @@ namespace Tasker.Tests
             _gitlab.WaitSync();
 
             // Assert
-            CollectionAssert.AreEqual(expected, _tasks);
             Assert.AreEqual(newStatus.ToString(), card.List.Name);
+            CollectionAssert.AreEqual(expected, _tasks);
 
             _redmineEvents.Assert(
                 new RedmineMoq.GetIssue(issueId, card.Name, card.Description, oldStatus),
@@ -313,8 +318,8 @@ namespace Tasker.Tests
             _gitlab.WaitSync();
 
             // Assert
-            CollectionAssert.AreEqual(expected, _tasks);
             Assert.AreEqual(newStatus.ToString(), card.List.Name);
+            CollectionAssert.AreEqual(expected, _tasks);
 
             _redmineEvents.Assert();
             _trelloEvents.Assert();

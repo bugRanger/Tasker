@@ -14,12 +14,17 @@
 
         #region Properties
 
+        public long? Interval { get; }
+
+        public long LastTime { get; set; }
+
         public Action<TResult> Callback { get; }
 
         #endregion Properties
 
-        protected TaskItem(Action<TResult> callback)
+        protected TaskItem(Action<TResult> callback, long? interval = null)
         {
+            Interval = interval;
             Callback = callback;
         }
 

@@ -31,6 +31,8 @@
 
         private readonly ILogger _logger;
 
+        private readonly ITimelineEnvironment _timeline;
+
         private readonly CancellationTokenSource _cancellationSource;
 
         private readonly TaskQueue _queue;
@@ -79,6 +81,8 @@
             _logger = LogManager.GetCurrentClassLogger();
 
             Options = options;
+
+            _timeline = timeline;
 
             _boards = new Dictionary<string, IBoard>();
             _cards = new Dictionary<string, ICard>();
@@ -140,7 +144,7 @@
 
             _queue.Start();
 
-            Enqueue(new SyncActionTask(SyncBoardCards, _queue, Options.Sync.Interval));
+            Enqueue(new ActionTask(SyncBoardCards, Options.Sync.Interval) { LastTime = _timeline.TickCount });
         }
 
         public void Stop()

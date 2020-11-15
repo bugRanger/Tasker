@@ -23,6 +23,8 @@
 
         private readonly ILogger _logger;
 
+        private readonly ITimelineEnvironment _timeline;
+
         private readonly CancellationTokenSource _cancellationSource;
 
         private readonly TaskQueue _queue;
@@ -34,17 +36,17 @@
 
         #endregion Fields
 
-        #region Events
-
-        public event Action<object, ITaskCommon, IEnumerable<string>> Notify;
-
-        #endregion Events
-
         #region Properties
 
         public IRedmineOptions Options { get; }
 
         #endregion Properties
+
+        #region Events
+
+        public event Action<object, ITaskCommon, IEnumerable<string>> Notify;
+
+        #endregion Events
 
         #region Constructors
 
@@ -60,6 +62,7 @@
 
             Options = options;
 
+            _timeline = timeline;
             _issues = new Dictionary<int, Issue>();
             _statuses = new Dictionary<TaskState, IssueStatus>();
 
@@ -86,8 +89,8 @@
             _proxy ??= new RedmineProxy(Options.Host, Options.ApiKey, MimeType.Xml, DefaultRedmineHttpSettings.Create());
             _queue.Start();
 
-            Enqueue(new SyncActionTask(SyncStatuses));
-            Enqueue(new SyncActionTask(SyncIssues, _queue, Options.Sync.Interval));
+            Enqueue(new ActionTask(SyncStatuses));
+            Enqueue(new ActionTask(SyncIssues, Options.Sync.Interval) { LastTime = _timeline.TickCount });
         }
 
         public void Stop()

@@ -8,6 +8,7 @@
     using Framework.Timeline;
 
     using Tasker.Interfaces.Task;
+    using System.Collections.Generic;
 
     public class TaskQueue : ITaskQueue
     {
@@ -85,7 +86,7 @@
         {
             var waiter = new ManualResetEvent(false);
 
-            _queueTask.Enqueue(new SyncActionTask(() => waiter.Set()));
+            _queueTask.Enqueue(new ActionTask(() => waiter.Set()));
             return waiter.WaitOne();
         }
 
@@ -94,19 +95,36 @@
             while (_locker.IsEnabled)
             {
                 var startTime = _timeline.TickCount;
+                var count = _queueTask.Count;
 
-                while (_queueTask.TryDequeue(out ITaskItem task))
+                while (count > 0 && _queueTask.TryDequeue(out ITaskItem task))
                 {
                     if (!_locker.IsEnabled)
                         return;
 
+                    count--;
+
                     try
                     {
+                        if (task.Interval.HasValue && _timeline.TickCount - task.LastTime < task.Interval)
+                        {
+                            _queueTask.Enqueue(task);
+                            continue;
+                        }
+
                         _execute?.Invoke(task);
                     }
                     catch (Exception ex)
                     {
                         Error?.Invoke(task, ex.Message);
+                    }
+                    finally
+                    {
+                        if (task.Interval.HasValue)
+                        {
+                            task.LastTime = _timeline.TickCount;
+                            _queueTask.Enqueue(task);
+                        }
                     }
                 }
 
