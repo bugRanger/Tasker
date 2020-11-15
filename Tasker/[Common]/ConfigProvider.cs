@@ -23,11 +23,30 @@
 
         public class SettingServices
         {
-            public TrelloOptions TrelloOptions { get; set; }
+            #region Fields
 
-            public GitLabOptions GitLabOptions { get; set; }
+            private TrelloOptions _trelloOptions;
+            private GitLabOptions _gitLabOptions;
+            private RedmineOptions _redmineOptions;
 
-            public RedmineOptions RedmineOptions { get; set; }
+            #endregion Fields
+
+            #region Properties
+
+            public TrelloOptions TrelloOptions { get => _trelloOptions; set => _trelloOptions = value ?? _trelloOptions; }
+
+            public GitLabOptions GitLabOptions { get => _gitLabOptions; set => _gitLabOptions = value ?? _gitLabOptions; }
+
+            public RedmineOptions RedmineOptions { get => _redmineOptions; set => _redmineOptions = value ?? _redmineOptions; }
+
+            #endregion Properties
+
+            public SettingServices() 
+            {
+                _trelloOptions = new TrelloOptions();
+                _gitLabOptions = new GitLabOptions();
+                _redmineOptions = new RedmineOptions();
+            }
         }
 
         #endregion Classes
