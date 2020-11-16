@@ -17,6 +17,7 @@
     using GitLabApiClient.Models.Branches.Requests;
     using GitLabApiClient.Models.MergeRequests.Responses;
     using GitLabApiClient.Models.MergeRequests.Requests;
+    using GitLabApiClient.Models.Releases.Responses;
 
     internal class GitlabMoq
     {
@@ -64,10 +65,10 @@
 
             Proxy = new Mock<IGitlabProxy>();
 
-            Proxy.Setup(s => s.GetAsync(It.IsAny<ProjectId>(), It.IsAny<Action<BranchQueryOptions>>())).Returns<ProjectId, Action<BranchQueryOptions>>((id, opt) => 
+            Proxy.Setup(s => s.GetAsync(It.IsAny<ProjectId>(), It.IsAny<string>())).Returns<ProjectId, string>((id, branchName) => 
             {
-                IList<Branch> result = Branches.Values.ToList();
-                return Task.FromResult(result);
+                Branches.TryGetValue(branchName, out var branch);
+                return Task.FromResult(branch);
             });
 
             Proxy.Setup(s => s.CreateAsync(It.IsAny<ProjectId>(), It.IsAny<CreateBranchRequest>())).Returns<ProjectId, CreateBranchRequest>((id, opt) =>
@@ -75,6 +76,7 @@
                 var result = new Branch
                 {
                     Name = opt.Branch,
+                    Commit = new Commit { Title = opt.Branch },
                 };
                 Branches[result.Name] = result;
 
@@ -107,6 +109,11 @@
 
                 return Task.FromResult(result);
             });
+        }
+
+        internal void MakeBranches(string branchId, string title)
+        {
+            Branches.Add(branchId, new Branch { Name = branchId, Commit = new Commit { Title = title } });
         }
 
         #endregion Constructors

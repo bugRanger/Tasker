@@ -51,7 +51,7 @@
 
         #region Constructors
 
-        public GitLabService(IGitLabOptions options, ITimelineEnvironment timeline, IGitlabProxy proxy = null) 
+        public GitLabService(IGitLabOptions options, ITimelineEnvironment timeline, IGitlabProxy proxy = null)
             : this(options, timeline)
         {
             _proxy = proxy;
@@ -89,7 +89,6 @@
             _proxy ??= new GitlabProxy(Options.Host, Options.Token);
             _queue.Start();
 
-            Enqueue(new ActionTask(() => SyncBranches(opt => opt.Search = Options.Sync.SearchBranches), Options.Sync.Interval) { LastTime = _timeline.TickCount });
             Enqueue(new ActionTask(() => SyncMergeRequests(opt => opt.AuthorId = Options.Sync.UserId), Options.Sync.Interval) { LastTime = _timeline.TickCount });
         }
 
@@ -109,138 +108,143 @@
 
         public string Handle(ITaskCommon task)
         {
-            string branchId = task.ExternalId ?? $"{task.Context.Kind}/{task.Context.Id}";
-            string branchRef = "origin/release/tmp-9.9";
+            string branchName = GetBranchName(task.Context);
 
             switch (task.Context.Status)
             {
-                case TaskState.InProgress:
-                    if (string.IsNullOrWhiteSpace(branchId) || !_branches.TryGetValue(branchId, out _))
-                    {
-                        _branches[branchId] =
-                            RunAsync(() =>
-                            {
-                                return _proxy.CreateAsync(Options.ProjectId, new CreateBranchRequest(branchId, branchRef));
-                            });
-                    }
-
+                case TaskState.OnReview:
+                    AddOrUpdateMergeRequest(branchName);
                     break;
 
-                case TaskState.OnReview:
-                    if (string.IsNullOrWhiteSpace(branchId) || !_branches.TryGetValue(branchId, out Branch branch))
-                    {
-                        break;
-                    }
-
-                    if (_requests.TryGetValue(branchId, out MergeRequest request))
-                    {
-                        if (request.Title != branch.Commit.Title)
-                        {
-                            _requests[branchId] =
-                                RunAsync(() =>
-                                {
-                                    return _proxy.UpdateAsync(Options.ProjectId, request.Id,
-                                        new UpdateMergeRequest()
-                                        {
-                                            AssigneeId = Options.AssignedId,
-                                            RemoveSourceBranch = true,
-                                            Title = branch.Commit.Title,
-                                            TargetBranch = branchRef,
-                                        });
-                                });
-                        }
-                        break;
-                    }
-
-                    _requests[branchId] =
-                        RunAsync(() =>
-                        {
-                            return _proxy.CreateAsync(Options.ProjectId,
-                                new CreateMergeRequest(branchId, branchRef, branch.Commit.Title)
-                                {
-                                    AssigneeId = Options.AssignedId,
-                                    RemoveSourceBranch = true,
-                                });
-                        });
-
+                default:
                     break;
             }
 
-            return branchId;
+            return branchName;
         }
 
         public void WaitSync() => _queue.IsEmpty();
-
-        private bool SyncBranches(Action<BranchQueryOptions> expression)
-        {
-            if (expression == null)
-            {
-                return false;
-            }
-
-            IList<Branch> updates = RunAsync(() => _proxy.GetAsync(Options.ProjectId, expression));
-
-            if (updates.Count == 0)
-            {
-                return false;
-            }
-
-            foreach (var item in updates)
-            {
-                // TODO Impl equeals.
-                if (_branches.TryGetValue(item.Name, out var branch) && item.Equals(branch))
-                    continue;
-
-                _branches[item.Name] = item;
-            }
-
-            return true;
-        }
 
         private bool SyncMergeRequests(Action<MergeRequestsQueryOptions> expression)
         {
             if (expression == null)
                 return false;
 
-            IList<MergeRequest> updates = RunAsync(() => _proxy.GetAsync(Options.ProjectId, expression));
-
-            if (updates.Count == 0)
+            try
             {
-                return false;
-            }
+                IList<MergeRequest> updates = RunAsync(() => _proxy.GetAsync(Options.ProjectId, expression));
 
-            foreach (var item in updates)
-            {
-                if (_requests.TryGetValue(item.SourceBranch, out var req) && item.State != req.State)
+                if (updates.Count == 0)
                 {
-                    continue;
+                    return false;
                 }
 
-                _requests[item.SourceBranch] = item;
-
-                if (item.State != MergeRequestState.Merged)
+                foreach (var item in updates)
                 {
-                    continue;
-                }
+                    if (_requests.TryGetValue(item.SourceBranch, out var req) && item.State != req.State)
+                    {
+                        continue;
+                    }
 
-                Notify?.Invoke(this,
-                    new TaskCommon
+                    _requests[item.SourceBranch] = item;
+
+                    if (item.State != MergeRequestState.Merged)
                     {
-                        ExternalId = item.SourceBranch,
-                        Context = new TaskContext { Status = TaskState.Resolved }
-                    },
-                    new string[]
-                    {
+                        continue;
+                    }
+
+                    Notify?.Invoke(this,
+                        new TaskCommon
+                        {
+                            ExternalId = item.SourceBranch,
+                            Context = new TaskContext { Status = TaskState.Resolved }
+                        },
+                        new string[]
+                        {
                         nameof(TaskContext.Status),
-                    });
+                        });
+                }
+
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex.Message);
             }
 
             return true;
         }
 
+        private string GetBranchName(ITaskContext task)
+        {
+            var folder =
+                task.Kind == TaskKind.Defect ? "bugfix" :
+                task.Kind == TaskKind.Task ? "feature" :
+                throw new ArgumentException(nameof(task.Kind));
+
+            return $"{folder}/{task.Id}";
+        }
+
+        private void AddOrUpdateMergeRequest(string branchName)
+        {
+            if (!_branches.TryGetValue(branchName, out Branch branch))
+            {
+                branch = RunAsync(() => _proxy.GetAsync(Options.ProjectId, branchName));
+                if (branch == null)
+                {
+                    return;
+                }
+            }
+
+            if (!_requests.TryGetValue(branchName, out MergeRequest request))
+            {
+                request =
+                    RunAsync(() =>
+                    {
+                        return _proxy.CreateAsync(Options.ProjectId,
+                            new CreateMergeRequest(branch.Name, Options.TargetBranch, branch.Commit.Title)
+                            {
+                                AssigneeId = Options.AssignedId,
+                                RemoveSourceBranch = true,
+                            });
+                    });
+            }
+            else if (request.Title != branch.Commit.Title)
+            {
+                request =
+                    RunAsync(() =>
+                    {
+                        return _proxy.UpdateAsync(Options.ProjectId, request.Id,
+                            new UpdateMergeRequest
+                            {
+                                AssigneeId = Options.AssignedId,
+                                RemoveSourceBranch = true,
+
+                                TargetBranch = Options.TargetBranch,
+                                Title = branch.Commit.Title,
+                            });
+                    });
+            }
+
+            if (request != null)
+            {
+                _requests[branch.Name] = request;
+            }
+        }
+
         private T RunAsync<T>(Func<Task<T>> action)
         {
-            return Task.Run(action, _cancellationSource.Token).Result;
+            var result = default(T);
+
+            try
+            {
+                result = Task.Run(action, _cancellationSource.Token).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex.Message);
+            }
+
+            return result;
         }
 
         #endregion Methods

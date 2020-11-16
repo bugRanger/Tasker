@@ -18,7 +18,7 @@
 
         Task<MergeRequest> CreateAsync(ProjectId projectId, CreateMergeRequest request);
 
-        Task<IList<Branch>> GetAsync(ProjectId projectId, Action<BranchQueryOptions> options = null);
+        Task<Branch> GetAsync(ProjectId projectId, string branchName);
 
         Task<IList<MergeRequest>> GetAsync(ProjectId projectId, Action<ProjectMergeRequestsQueryOptions> options = null);
 

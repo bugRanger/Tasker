@@ -4,6 +4,7 @@
 
     public enum TaskKind
     {
+        Unknown,
         Task,
         Defect,
     }

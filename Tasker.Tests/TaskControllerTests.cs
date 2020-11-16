@@ -88,6 +88,9 @@ namespace Tasker.Tests
             {
                 ProjectId = 1,
                 Interval = 0,
+                TargetBranch = "origin/master",
+                AssignedId = 18,
+                UserId = 81,
             };
             var redmineOptions = new RedmineOptions()
             {
@@ -100,12 +103,12 @@ namespace Tasker.Tests
         }
 
         [Test]
-        public void CreateRedmineTest()
+        public void RedmineNewTest()
         {
             // Arrage
             var issueId = RedmineMoq.GetIssueId(1).ToString();
             var cardId = TrelloMoq.GetCardId(1);
-            var branchId = $"{TaskKind.Task}/{issueId}";
+            var branchId = $"feature/{issueId}";
 
             var subject = "Name";
             var description = "Description";
@@ -181,7 +184,7 @@ namespace Tasker.Tests
         }
 
         [Test]
-        public void UpdateTrelloTest()
+        public void TrelloInAnalysisTest()
         {
             // Arrage
             _redmineMoq.MakeStatus(RedmineMoq.GetStatusId(1), "New", true);
@@ -192,7 +195,7 @@ namespace Tasker.Tests
             _redmineMoq.MakeStatus(RedmineMoq.GetStatusId(6), "Paused", true);
             _redmineMoq.MakeStatus(RedmineMoq.GetStatusId(7), "Closed", true);
 
-            CreateRedmineTest();
+            RedmineNewTest();
 
             var issueId = RedmineMoq.GetIssueId(1).ToString();
             var cardId = TrelloMoq.GetCardId(1);
@@ -234,14 +237,14 @@ namespace Tasker.Tests
         }
 
         [Test]
-        public void UpdateGitlabTest()
+        public void GitlabInProgressTest()
         {
             // Arrage
-            UpdateTrelloTest();
+            TrelloInAnalysisTest();
 
             var issueId = RedmineMoq.GetIssueId(1).ToString();
             var cardId = TrelloMoq.GetCardId(1);
-            var branchId = $"{TaskKind.Task}/{issueId}";
+            var branchId = $"feature/{issueId}";
 
             var card = _trelloMoq.Cards.Object.FirstOrDefault(f => f.Id == cardId);
             var oldStatus = card.List.Name;
@@ -276,20 +279,68 @@ namespace Tasker.Tests
             _redmineEvents.Assert(
                 new RedmineMoq.GetIssue(issueId, card.Name, card.Description, oldStatus),
                 new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()));
+            _gitlabEvents.Assert();
+        }
+
+        [Test]
+        public void GitlabOnReviewTest()
+        {
+            // Arrage
+            GitlabInProgressTest();
+
+            var issueId = RedmineMoq.GetIssueId(1).ToString();
+            var cardId = TrelloMoq.GetCardId(1);
+            var branchId = $"feature/{issueId}";
+
+            var card = _trelloMoq.Cards.Object.FirstOrDefault(f => f.Id == cardId);
+            var oldStatus = card.List.Name;
+            var newStatus = TaskState.OnReview;
+
+            _gitlabMoq.MakeBranches(branchId, "title");
+
+            var context = new TaskContext
+            {
+                Id = issueId,
+                Name = card.Name,
+                Description = card.Description,
+                Kind = TaskKind.Task,
+                Status = newStatus,
+            };
+
+            var expected = new Dictionary<int, TaskCommon>(_tasks);
+            foreach (var item in expected.ToArray())
+            {
+                expected[item.Key] = new TaskCommon { ExternalId = item.Value.ExternalId, Context = context };
+            }
+
+            // Act
+            _trelloMoq.RaiseNotify(card.Id, newStatus.ToString());
+
+            _redmine.WaitSync();
+            _trello.WaitSync();
+            _gitlab.WaitSync();
+
+            // Assert
+            Assert.AreEqual(newStatus.ToString(), card.List.Name);
+            CollectionAssert.AreEqual(expected, _tasks);
+
+            _redmineEvents.Assert(
+                new RedmineMoq.GetIssue(issueId, card.Name, card.Description, oldStatus),
+                new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()));
             _gitlabEvents.Assert(
-                new GitlabMoq.CreateBranch(branchId, _gitlab.Options.ProjectId.ToString()));
+                new GitlabMoq.CreateMergeRequest(1, _gitlab.Options.ProjectId.ToString(), "title", branchId, _gitlab.Options.TargetBranch, _gitlab.Options.AssignedId, true));
         }
 
 
         [Test]
-        public void UpdateRedmineTest()
+        public void RedminePausedTest()
         {
             // Arrage
-            UpdateTrelloTest();
+            TrelloInAnalysisTest();
 
             var issueId = RedmineMoq.GetIssueId(1).ToString();
             var cardId = TrelloMoq.GetCardId(1);
-            var branchId = $"{TaskKind.Task}/{issueId}";
+            var branchId = $"feature/{issueId}";
 
             var card = _trelloMoq.Cards.Object.FirstOrDefault(f => f.Id == cardId);
             var oldStatus = card.List.Name;

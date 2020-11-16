@@ -12,6 +12,8 @@
 
         string Token { get; }
 
+        string TargetBranch { get; }
+
         IGitlabSync Sync { get; }
 
         #endregion Properties

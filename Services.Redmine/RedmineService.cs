@@ -177,7 +177,7 @@
                             Id = issue.Id.ToString(),
                             Name = issue.Subject,
                             Description = issue.Description,
-                            Kind = Enum.TryParse<TaskKind>(issue.Tracker.Name, out var kind) ? kind : TaskKind.Task,
+                            Kind = Enum.TryParse<TaskKind>(issue.Tracker.Name, out var kind) ? kind : TaskKind.Unknown,
                             Status = Enum.TryParse<TaskState>(issue.Status.Name.Replace(" ", string.Empty), true, out var state) ? state : TaskState.New,
                         }
                     },

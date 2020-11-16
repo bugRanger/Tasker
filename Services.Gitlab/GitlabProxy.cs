@@ -35,9 +35,9 @@
             return _client.Branches.CreateAsync(projectId, request);
         }
 
-        public Task<IList<Branch>> GetAsync(ProjectId projectId, Action<BranchQueryOptions> options = null)
+        public Task<Branch> GetAsync(ProjectId projectId, string branchName)
         {
-            return _client.Branches.GetAsync(projectId, options);
+            return _client.Branches.GetAsync(projectId, branchName);
         }
 
 

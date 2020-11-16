@@ -18,7 +18,7 @@
 
         public int ProjectId { get; set; }
 
-        public string SearchBranches { get; set; }
+        public string TargetBranch { get; set; }
 
         #endregion Properties
     }
