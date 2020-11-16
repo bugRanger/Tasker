@@ -84,7 +84,7 @@
 
         public bool IsEmpty()
         {
-            var waiter = new ManualResetEvent(false);
+            using var waiter = new ManualResetEvent(false);
 
             _queueTask.Enqueue(new ActionTask(() => waiter.Set()));
             return waiter.WaitOne();
@@ -104,14 +104,14 @@
 
                     count--;
 
+                    if (task.Interval.HasValue && startTime - task.LastTime < task.Interval)
+                    {
+                        _queueTask.Enqueue(task);
+                        continue;
+                    }
+
                     try
                     {
-                        if (task.Interval.HasValue && startTime - task.LastTime > task.Interval * 100)
-                        {
-                            _queueTask.Enqueue(task);
-                            continue;
-                        }
-
                         _execute?.Invoke(task);
                     }
                     catch (Exception ex)
@@ -122,7 +122,7 @@
                     {
                         if (task.Interval.HasValue)
                         {
-                            task.LastTime = startTime + _wait;
+                            task.LastTime = startTime + task.Interval.Value;
                             _queueTask.Enqueue(task);
                         }
                     }
