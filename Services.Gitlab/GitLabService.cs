@@ -188,7 +188,7 @@
         {
             if (!_branches.TryGetValue(branchName, out Branch branch))
             {
-                branch = RunAsync(() => _proxy.GetAsync(Options.ProjectId, branchName));
+                branch = RunAsync(() => _proxy.GetAsync(Options.ProjectId, options => options.Search = branchName)).FirstOrDefault();
                 if (branch == null)
                 {
                     return;
@@ -227,7 +227,7 @@
 
             if (request != null)
             {
-                _requests[branch.Name] = request;
+                _requests[branchName] = request;
             }
         }
 

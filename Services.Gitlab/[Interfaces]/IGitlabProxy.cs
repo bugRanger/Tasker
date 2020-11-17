@@ -20,6 +20,8 @@
 
         Task<Branch> GetAsync(ProjectId projectId, string branchName);
 
+        Task<IList<Branch>> GetAsync(ProjectId projectId, Action<BranchQueryOptions> options = null);
+
         Task<IList<MergeRequest>> GetAsync(ProjectId projectId, Action<ProjectMergeRequestsQueryOptions> options = null);
 
         Task<MergeRequest> UpdateAsync(ProjectId projectId, int mergeRequestId, UpdateMergeRequest request);

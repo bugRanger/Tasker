@@ -40,6 +40,11 @@
             return _client.Branches.GetAsync(projectId, branchName);
         }
 
+        public Task<IList<Branch>> GetAsync(ProjectId projectId, Action<BranchQueryOptions> options)
+        {
+            return _client.Branches.GetAsync(projectId, options);
+        }
+
 
         public Task<MergeRequest> CreateAsync(ProjectId projectId, CreateMergeRequest request)
         {
