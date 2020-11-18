@@ -73,6 +73,7 @@
 
         public void Dispose()
         {
+            // Impl correct resource release.
             Stop();
             _proxy?.Dispose();
         }
@@ -114,12 +115,14 @@
                 return string.Empty;
             }
 
+            // Уродливо, любое обновление, даже не отслеживаемое сервисом производит изменения. Необходимо добавить сверку на НЕОБХОДИМОСТЬ совершения изменения.
             Issue issue = RunAsync(() => _proxy.Get<Issue>(task.ExternalId.ToString(), new NameValueCollection()));
             if (issue == null)
             {
                 return string.Empty;
             }
 
+            // Прервать можно уже тут если нет возможности получить статус.
             _statuses.TryGetValue(task.Context.Status, out var status);
             issue.Status = status;
 

@@ -105,7 +105,7 @@ namespace Tasker.Tests
         [Test]
         public void RedmineNewTest()
         {
-            // Arrage
+            // Arrange
             var issueId = RedmineMoq.GetIssueId(1).ToString();
             var cardId = TrelloMoq.GetCardId(1);
             var branchId = $"feature/{issueId}";
@@ -170,6 +170,7 @@ namespace Tasker.Tests
             // Assert
             CollectionAssert.AreEqual(expected, _tasks);
 
+            _redmineEvents.Assert();
             _gitlabEvents.Assert();
             _trelloEvents.Assert(
                 new TrelloMoq.AppendBoard(_trello.Options.BoardId, _trello.Options.BoardName),
@@ -186,7 +187,7 @@ namespace Tasker.Tests
         [Test]
         public void TrelloInAnalysisTest()
         {
-            // Arrage
+            // Arrange
             _redmineMoq.MakeStatus(RedmineMoq.GetStatusId(1), "New", true);
             _redmineMoq.MakeStatus(RedmineMoq.GetStatusId(2), "InAnalysis", true);
             _redmineMoq.MakeStatus(RedmineMoq.GetStatusId(3), "InProgress", true);
@@ -216,7 +217,11 @@ namespace Tasker.Tests
             var expected = new Dictionary<int, TaskCommon>(_tasks);
             foreach (var item in expected.ToArray())
             {
-                expected[item.Key] = new TaskCommon { ExternalId = item.Value.ExternalId, Context = context };
+                expected[item.Key] = new TaskCommon 
+                { 
+                    ExternalId = item.Value.ExternalId, 
+                    Context = context 
+                };
             }
 
             // Act
@@ -230,16 +235,17 @@ namespace Tasker.Tests
             Assert.AreEqual(newStatus.ToString(), card.List.Name);
             CollectionAssert.AreEqual(expected, _tasks);
 
-            _gitlabEvents.Assert();
             _redmineEvents.Assert(
                 new RedmineMoq.GetIssue(issueId, card.Name, card.Description, oldStatus),
                 new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()));
+            _gitlabEvents.Assert();
+            _trelloEvents.Assert();
         }
 
         [Test]
         public void GitlabInProgressTest()
         {
-            // Arrage
+            // Arrange
             TrelloInAnalysisTest();
 
             var issueId = RedmineMoq.GetIssueId(1).ToString();
@@ -262,7 +268,11 @@ namespace Tasker.Tests
             var expected = new Dictionary<int, TaskCommon>(_tasks);
             foreach (var item in expected.ToArray())
             {
-                expected[item.Key] = new TaskCommon { ExternalId = item.Value.ExternalId, Context = context };
+                expected[item.Key] = new TaskCommon 
+                { 
+                    ExternalId = item.Value.ExternalId, 
+                    Context = context 
+                };
             }
 
             // Act
@@ -280,12 +290,13 @@ namespace Tasker.Tests
                 new RedmineMoq.GetIssue(issueId, card.Name, card.Description, oldStatus),
                 new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()));
             _gitlabEvents.Assert();
+            _trelloEvents.Assert();
         }
 
         [Test]
         public void GitlabOnReviewTest()
         {
-            // Arrage
+            // Arrange
             GitlabInProgressTest();
 
             var issueId = RedmineMoq.GetIssueId(1).ToString();
@@ -310,7 +321,11 @@ namespace Tasker.Tests
             var expected = new Dictionary<int, TaskCommon>(_tasks);
             foreach (var item in expected.ToArray())
             {
-                expected[item.Key] = new TaskCommon { ExternalId = item.Value.ExternalId, Context = context };
+                expected[item.Key] = new TaskCommon 
+                { 
+                    ExternalId = item.Value.ExternalId, 
+                    Context = context 
+                };
             }
 
             // Act
@@ -329,13 +344,13 @@ namespace Tasker.Tests
                 new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()));
             _gitlabEvents.Assert(
                 new GitlabMoq.CreateMergeRequest(1, _gitlab.Options.ProjectId.ToString(), "title", branchId, _gitlab.Options.TargetBranch, _gitlab.Options.AssignedId, true));
+            _trelloEvents.Assert();
         }
-
 
         [Test]
         public void RedminePausedTest()
         {
-            // Arrage
+            // Arrange
             TrelloInAnalysisTest();
 
             var issueId = RedmineMoq.GetIssueId(1).ToString();
@@ -380,7 +395,7 @@ namespace Tasker.Tests
         [Test]
         public void GetKeyTest()
         {
-            // Arrage
+            // Arrange
             int expected1 = 1286132837;
             int expected2 = -1929052188;
 

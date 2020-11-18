@@ -95,6 +95,7 @@
 
         public void Dispose()
         {
+            // Impl correct resource release.
             Stop();
         }
 

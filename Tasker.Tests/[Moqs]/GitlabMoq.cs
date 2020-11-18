@@ -65,6 +65,11 @@
 
             Proxy = new Mock<IGitlabProxy>();
 
+            Proxy.Setup(s => s.GetAsync(It.IsAny<ProjectId>(), It.IsAny<Action<BranchQueryOptions>>())).Returns<ProjectId, Action<BranchQueryOptions>>((id, expression) =>
+            {
+                return Task.FromResult((IList<Branch>)Branches.Values.ToList());
+            });
+
             Proxy.Setup(s => s.GetAsync(It.IsAny<ProjectId>(), It.IsAny<string>())).Returns<ProjectId, string>((id, branchName) => 
             {
                 Branches.TryGetValue(branchName, out var branch);

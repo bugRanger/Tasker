@@ -13,5 +13,7 @@
         TaskKind Kind { get; }
 
         TaskState Status { get; }
+
+        MergeState MergeStatus { get; }
     }
 }

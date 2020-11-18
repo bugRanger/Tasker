@@ -18,6 +18,8 @@
 
         public TaskKind Kind { get; set; }
 
+        public MergeState MergeStatus { get; set; }
+
         #endregion Properties
 
         #region Methods

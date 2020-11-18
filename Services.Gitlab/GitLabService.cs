@@ -74,6 +74,7 @@
 
         public void Dispose()
         {
+            // Impl correct resource release.
             Stop();
         }
 
@@ -113,7 +114,22 @@
             switch (task.Context.Status)
             {
                 case TaskState.OnReview:
-                    AddOrUpdateMergeRequest(branchName);
+                    if (AddOrUpdateMergeRequest(branchName))
+                    {
+                        Notify?.Invoke(this,
+                            new TaskCommon
+                            {
+                                ExternalId = branchName,
+                                Context = new TaskContext
+                                {
+                                    MergeStatus = MergeState.Open,
+                                }
+                            },
+                            new string[]
+                            {
+                                nameof(TaskContext.MergeStatus),
+                            });
+                    }
                     break;
 
                 default:
@@ -157,11 +173,16 @@
                         new TaskCommon
                         {
                             ExternalId = item.SourceBranch,
-                            Context = new TaskContext { Status = TaskState.Resolved }
+                            Context = new TaskContext 
+                            { 
+                                MergeStatus = MergeState.Merged,
+                                Status = TaskState.Resolved,
+                            }
                         },
                         new string[]
                         {
-                        nameof(TaskContext.Status),
+                            nameof(TaskContext.MergeStatus),
+                            nameof(TaskContext.Status),
                         });
                 }
 
@@ -184,14 +205,15 @@
             return $"{folder}/{task.Id}";
         }
 
-        private void AddOrUpdateMergeRequest(string branchName)
+        private bool AddOrUpdateMergeRequest(string branchName)
         {
             if (!_branches.TryGetValue(branchName, out Branch branch))
             {
+                //branch = RunAsync(() => _proxy.GetAsync(Options.ProjectId, branchName));
                 branch = RunAsync(() => _proxy.GetAsync(Options.ProjectId, options => options.Search = branchName)).FirstOrDefault();
                 if (branch == null)
                 {
-                    return;
+                    return false;
                 }
             }
 
@@ -229,6 +251,8 @@
             {
                 _requests[branchName] = request;
             }
+
+            return request != null;
         }
 
         private T RunAsync<T>(Func<Task<T>> action)
