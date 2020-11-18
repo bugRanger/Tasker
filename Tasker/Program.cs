@@ -27,9 +27,9 @@
 
                 service = new TaskController(config.Tasks);
 
-                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
                 service.Register(new TrelloService(config.Settings.TrelloOptions, TimelineEnvironment.Instance));
                 service.Register(new GitLabService(config.Settings.GitLabOptions, TimelineEnvironment.Instance));
+                service.Register(new RedmineService(config.Settings.RedmineOptions, TimelineEnvironment.Instance));
 
                 service.Start();
 
