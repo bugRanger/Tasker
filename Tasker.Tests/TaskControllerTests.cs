@@ -341,7 +341,8 @@ namespace Tasker.Tests
 
             _redmineEvents.Assert(
                 new RedmineMoq.GetIssue(issueId, card.Name, card.Description, oldStatus),
-                new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()));
+                new RedmineMoq.UpdateIssue(issueId, card.Name, card.Description, newStatus.ToString()),
+                new RedmineMoq.GetIssue(issueId, card.Name, card.Description, newStatus.ToString()));
             _gitlabEvents.Assert(
                 new GitlabMoq.CreateMergeRequest(1, _gitlab.Options.ProjectId.ToString(), "title", branchId, _gitlab.Options.TargetBranch, _gitlab.Options.AssignedId, true));
             _trelloEvents.Assert();

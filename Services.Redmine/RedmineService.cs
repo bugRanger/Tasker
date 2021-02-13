@@ -122,19 +122,24 @@
                 return string.Empty;
             }
 
-            // Прервать можно уже тут если нет возможности получить статус.
-            _statuses.TryGetValue(task.Context.Status, out var status);
+            bool changed = false;
+
+            if (!_statuses.TryGetValue(task.Context.Status, out var status))
+            {
+                return issue.Id.ToString();
+            }
+
+            changed |= issue.Status != status;
             issue.Status = status;
 
             //if (issue.EstimatedHours == null)
             //    issue.EstimatedHours = Options.EstimatedHoursABS;
-
-            _issues[issue.Id] = issue;
-
             //var values1 = new NameValueCollection() { { RedmineKeys.ISSUE_ID, issue.Id.ToString() } };
             //var updates1 = RunAsync(() => _proxy.ListAll<TimeEntry>(values1));
 
-            if (status != null)
+            _issues[issue.Id] = issue;
+
+            if (changed)
             {
                 issue = RunAsync(() => _proxy.Update(task.ExternalId.ToString(), issue));
             }
