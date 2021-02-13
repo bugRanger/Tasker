@@ -78,7 +78,7 @@
                     taskCurrent = new TaskCommon();
                 }
 
-                ApplyPatch(task.Context, taskCurrent.Context, properties);
+                taskCurrent.Context.ApplyPatch(task.Context, properties);
 
                 current.Key.Enqueue(new UpdateTask(taskCurrent, taskId =>
                 {
@@ -88,38 +88,6 @@
                         UpdateContainer(_tasks, cached, taskCurrent.Context);
                     }
                 }));
-            }
-        }
-
-        private static void ApplyPatch(ITaskContext source, TaskContext target, IEnumerable<string> properties)
-        {
-            foreach (var property in properties)
-            {
-                switch (property)
-                {
-                    case nameof(ITaskContext.Id):
-                        target.Id = source.Id;
-                        break;
-
-                    case nameof(ITaskContext.Name):
-                        target.Name = source.Name;
-                        break;
-
-                    case nameof(ITaskContext.Description):
-                        target.Description = source.Description;
-                        break;
-
-                    case nameof(ITaskContext.Kind):
-                        target.Kind = source.Kind;
-                        break;
-
-                    case nameof(ITaskContext.Status):
-                        target.Status = source.Status;
-                        break;
-
-                    default:
-                        break;
-                }
             }
         }
 
