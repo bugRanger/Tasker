@@ -68,7 +68,7 @@
 
             _cancellationSource = new CancellationTokenSource();
             _queue = new TaskQueue(task => task.Handle(this), timeline);
-            _queue.Error += (task, error) => _logger?.Error($"failed task: {task}, error: `{error}`"); ;
+            _queue.Error += (task, error) => _logger.Error($"failed task: {task}, error: `{error}`"); ;
         }
 
         public void Dispose()
@@ -110,14 +110,13 @@
 
         public string Handle(ITaskCommon task)
         {
-            if (string.IsNullOrWhiteSpace(task.ExternalId))
+            if (string.IsNullOrWhiteSpace(task.ExternalId) || 
+                !int.TryParse(task.ExternalId, out int id))
             {
                 return string.Empty;
             }
 
-            // Уродливо, любое обновление, даже не отслеживаемое сервисом производит изменения. Необходимо добавить сверку на НЕОБХОДИМОСТЬ совершения изменения.
-            Issue issue = RunAsync(() => _proxy.Get<Issue>(task.ExternalId.ToString(), new NameValueCollection()));
-            if (issue == null)
+            if (!_issues.TryGetValue(id, out Issue issue))
             {
                 return string.Empty;
             }
