@@ -2,6 +2,7 @@
 {
     using System;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
 
     using NLog;
@@ -12,12 +13,9 @@
 
     using Framework.Common;
 
-    using Tasker.Common.Task;
-
     using System.Collections.Generic;
-    using System.Collections.Concurrent;
 
-    public class ConfigProvider
+    public class ConfigProvider : IConfigProvider
     {
         #region Classes
 
@@ -41,7 +39,7 @@
 
             #endregion Properties
 
-            public SettingServices() 
+            public SettingServices()
             {
                 _trelloOptions = new TrelloOptions();
                 _gitLabOptions = new GitLabOptions();
@@ -63,14 +61,13 @@
         private readonly ILogger _logger;
 
         private readonly object _locker = new object();
+        private readonly Dictionary<IConfigContainer, string> _configToFile;
 
         #endregion Fields
 
         #region Properties
 
         public SettingServices Settings { get; private set; }
-
-        public IDictionary<int, TaskCommon> Tasks { get; private set; }
 
         #endregion Properties
 
@@ -79,6 +76,7 @@
         public ConfigProvider()
         {
             _logger = LogManager.GetCurrentClassLogger();
+            _configToFile = new Dictionary<IConfigContainer, string>();
         }
 
         #endregion Constructors
@@ -89,14 +87,15 @@
         {
             lock (_locker)
             {
+                var tasks = _configToFile
+                    .Select((s) => s.Key.Load(this))
+                    .AsParallel()
+                    .ToArray();
+
+                Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); });
+
                 Task.Factory
-                    .ContinueWhenAll(
-                        new[]
-                        {
-                            Task.Run(async () => { await Handle("loading task cached", async () => Tasks = new ConcurrentDictionary<int, TaskCommon>(await JsonConfig.Read<List<KeyValuePair<int, TaskCommon>>>(TASK_CACHED_FILE))); }),
-                            Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); }),
-                        }, 
-                        s => { })
+                    .ContinueWhenAll(tasks, s => HandleContinue("Load", s))
                     .Wait();
             }
         }
@@ -105,16 +104,43 @@
         {
             lock (_locker)
             {
+                var tasks = _configToFile
+                    .Select(s => s.Key.Save(this))
+                    .AsParallel()
+                    .ToArray();
+                
+                Task.Run(async () => { await Handle("saving configuration", async () => await JsonConfig.Write(Settings, SETTING_SERVICE_FILE)); });
                 Task.Factory
-                    .ContinueWhenAll(
-                        new[]
-                        {
-                            Task.Run(async () => { await Handle("saving task cached", async () => await JsonConfig.Write(Tasks.ToArray(), TASK_CACHED_FILE)); }),
-                            Task.Run(async () => { await Handle("saving configuration", async () => await JsonConfig.Write(Settings, SETTING_SERVICE_FILE)); }),
-                        }, 
-                        s => { })
+                    .ContinueWhenAll(tasks, s => HandleContinue("Save", s))
                     .Wait();
             }
+        }
+
+        public void Register(IConfigContainer config, string fileName)
+        {
+            _configToFile[config] = fileName;
+        }
+
+        public async Task<T> Read<T>(IConfigContainer config, CancellationToken token = default)
+            where T : class, new()
+        {
+            if (!_configToFile.TryGetValue(config, out string configFile))
+            {
+                return await Task.FromResult(default(T));
+            }
+
+            return await JsonConfig.Read<T>(configFile, token);
+        }
+
+        public async Task Write<T>(IConfigContainer config, T value, CancellationToken token = default)
+            where T : class, new()
+        {
+            if (!_configToFile.TryGetValue(config, out string configFile))
+            {
+                return;
+            }
+
+            await JsonConfig.Write(value, configFile, token);
         }
 
         private async Task Handle(string title, Func<Task> action)
@@ -128,6 +154,17 @@
             catch (Exception ex)
             {
                 _logger.Error($"failure {title}: " + ex.Message);
+            }
+        }
+
+        private void HandleContinue(string action, Task<IConfigContainer>[] tasks)
+        {
+            foreach (var task in tasks)
+            {
+                if (task.IsFaulted && _configToFile.TryGetValue(task.Result, out string file))
+                {
+                    _logger.Error(() => $"{action} config `{file}` exception: " + task.Exception);
+                }
             }
         }
 
