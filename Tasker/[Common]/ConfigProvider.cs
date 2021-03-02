@@ -51,7 +51,6 @@
 
         #region Constants
 
-        private const string TASK_CACHED_FILE = "taskCached.json";
         private const string SETTING_SERVICE_FILE = "serviceSettings.json";
 
         #endregion Constants
@@ -92,8 +91,7 @@
                     .AsParallel()
                     .ToArray();
 
-                Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); });
-
+                Task.Run(async () => { await Handle("loading configuration", async () => Settings = await JsonConfig.Read<SettingServices>(SETTING_SERVICE_FILE)); }).Wait();
                 Task.Factory
                     .ContinueWhenAll(tasks, s => HandleContinue("Load", s))
                     .Wait();
@@ -109,7 +107,7 @@
                     .AsParallel()
                     .ToArray();
                 
-                Task.Run(async () => { await Handle("saving configuration", async () => await JsonConfig.Write(Settings, SETTING_SERVICE_FILE)); });
+                Task.Run(async () => { await Handle("saving configuration", async () => await JsonConfig.Write(Settings, SETTING_SERVICE_FILE)); }).Wait();
                 Task.Factory
                     .ContinueWhenAll(tasks, s => HandleContinue("Save", s))
                     .Wait();
