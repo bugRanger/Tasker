@@ -192,8 +192,6 @@
                     User.Boards.FirstOrDefault(f => f.Id == Options.BoardId) ??
                     User.Boards.Add(Options.BoardName, ct: _cancellationSource.Token).Result;
 
-                Options.BoardId = board.Id;
-
                 // TODO: Добавить обработку/запись исключений для каждой задачи.
                 Task.Factory
                     .ContinueWhenAll(new[]
@@ -203,13 +201,21 @@
                     }, s => { })
                     .Wait();
 
-                foreach (IList item in board.Lists)
-                    item.IsArchived = true;
+                if (Options.BoardId != board.Id)
+                {
+                    foreach (IList item in board.Lists)
+                        item.IsArchived = true;
+                }
+
+                Options.BoardId = board.Id;
 
                 var states = Enum.GetValues(typeof(TaskState)).Cast<TaskState>();
                 foreach (var item in states.Reverse())
                 {
-                    var list = board.Lists.Add(item.ToString(), ct: _cancellationSource.Token).Result;
+                    var list =
+                        board.Lists.FirstOrDefault(f => f.Name == item.ToString()) ??
+                        board.Lists.Add(item.ToString(), ct: _cancellationSource.Token).Result;
+
                     _lists[item] = list;
                 }
             }
