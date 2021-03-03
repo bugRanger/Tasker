@@ -9,8 +9,9 @@
     using System.Security.Cryptography;
 
     using Tasker.Common.Task;
+    using System.Collections;
 
-    public class TaskContainer : ITaskContainer, IConfigContainer
+    public class TaskContainer : ITaskContainer, IConfigContainer, IEnumerable<KeyValuePair<int, TaskCommon>>
     {
         #region Fields
 
@@ -59,7 +60,7 @@
             }
         }
 
-        private static int GetKey(int subjectId, string taskId)
+        public static int GetKey(int subjectId, string taskId)
         {
             using var sha = MD5.Create();
 
@@ -80,6 +81,16 @@
         {
             await provider.Write(this, _container.ToList(), token);
             return this;
+        }
+
+        public IEnumerator<KeyValuePair<int, TaskCommon>> GetEnumerator()
+        {
+            return _container.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         #endregion Methods

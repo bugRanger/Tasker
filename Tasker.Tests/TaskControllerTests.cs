@@ -47,7 +47,8 @@ namespace Tasker.Tests
         private MethodCallList _redmineEvents;
         private MethodCallList _trelloEvents;
         private MethodCallList _gitlabEvents;
-        private Dictionary<int, TaskCommon> _tasks;
+
+        private TaskContainer _tasks;
         private ITaskController _controller;
 
         private TrelloMoq _trelloMoq;
@@ -70,7 +71,7 @@ namespace Tasker.Tests
             _trelloEvents = new MethodCallList();
             _gitlabEvents = new MethodCallList();
 
-            _tasks = new Dictionary<int, TaskCommon>();
+            _tasks = new TaskContainer();
 
             _controller = new TaskController(_tasks);
 
@@ -133,29 +134,29 @@ namespace Tasker.Tests
             var expected = new Dictionary<int, TaskCommon>
             {
                 {
-                    TaskController.GetKey(TRELLO_ID, issueId),
+                    TaskContainer.GetKey(TRELLO_ID, issueId),
                     new TaskCommon { ExternalId = cardId, Context = context }
                 },
                 {
-                    TaskController.GetKey(TRELLO_ID, branchId),
+                    TaskContainer.GetKey(TRELLO_ID, branchId),
                     new TaskCommon { ExternalId = cardId, Context = context }
                 },
 
                 {
-                    TaskController.GetKey(REDMINE_ID, cardId),
+                    TaskContainer.GetKey(REDMINE_ID, cardId),
                     new TaskCommon { ExternalId = issueId, Context = context }
                 },
                 {
-                    TaskController.GetKey(REDMINE_ID, branchId),
+                    TaskContainer.GetKey(REDMINE_ID, branchId),
                     new TaskCommon { ExternalId = issueId, Context = context }
                 },
 
                 {
-                    TaskController.GetKey(GITLAB_ID, cardId),
+                    TaskContainer.GetKey(GITLAB_ID, cardId),
                     new TaskCommon { ExternalId = branchId, Context = context }
                 },
                 {
-                    TaskController.GetKey(GITLAB_ID, issueId),
+                    TaskContainer.GetKey(GITLAB_ID, issueId),
                     new TaskCommon { ExternalId = branchId, Context = context }
                 },
             };
@@ -168,7 +169,7 @@ namespace Tasker.Tests
             _gitlab.WaitSync();
 
             // Assert
-            CollectionAssert.AreEqual(expected, _tasks);
+            CollectionAssert.AreEquivalent(expected, _tasks);
 
             _redmineEvents.Assert();
             _gitlabEvents.Assert();
@@ -399,9 +400,9 @@ namespace Tasker.Tests
             int expected2 = -1929052188;
 
             // Act
-            var hash1 = TaskController.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
-            var hash2 = TaskController.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
-            var hash3 = TaskController.GetKey(int.MaxValue - 1, "yGv9F3qmOKf8C7hcpVq6");
+            var hash1 = TaskContainer.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
+            var hash2 = TaskContainer.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
+            var hash3 = TaskContainer.GetKey(int.MaxValue - 1, "yGv9F3qmOKf8C7hcpVq6");
 
             // Assert
             Assert.AreEqual(expected1, hash1);
