@@ -7,6 +7,12 @@
 
     public class TaskContext : ITaskContext, IEquatable<ITaskContext>
     {
+        #region Fields
+
+        private static readonly Dictionary<string, Action<ITaskContext, TaskContext>> _propertySetter;
+
+        #endregion Fields
+
         #region Properties
 
         public string Id { get; set; }
@@ -25,39 +31,27 @@
 
         #region Methods
 
+        static TaskContext()
+        {
+            _propertySetter = new Dictionary<string, Action<ITaskContext, TaskContext>>
+            {
+                [nameof(ITaskContext.Id)] = (source, dest) => dest.Id = source.Id,
+                [nameof(ITaskContext.Kind)] = (source, dest) => dest.Kind = source.Kind,
+                [nameof(ITaskContext.Name)] = (source, dest) => dest.Name = source.Name,
+                [nameof(ITaskContext.Status)] = (source, dest) => dest.Status = source.Status,
+                [nameof(ITaskContext.Description)] = (source, dest) => dest.Description = source.Description,
+                [nameof(ITaskContext.MergeStatus)] = (source, dest) => dest.MergeStatus = source.MergeStatus,
+            };
+        }
+
         public void ApplyPatch(ITaskContext source, IEnumerable<string> properties)
         {
             foreach (var property in properties)
             {
-                switch (property)
-                {
-                    case nameof(ITaskContext.Id):
-                        Id = source.Id;
-                        break;
+                if (!_propertySetter.TryGetValue(property, out var setter))
+                    continue;
 
-                    case nameof(ITaskContext.Name):
-                        Name = source.Name;
-                        break;
-
-                    case nameof(ITaskContext.Description):
-                        Description = source.Description;
-                        break;
-
-                    case nameof(ITaskContext.Kind):
-                        Kind = source.Kind;
-                        break;
-
-                    case nameof(ITaskContext.MergeStatus):
-                        MergeStatus = source.MergeStatus;
-                        break;
-
-                    case nameof(ITaskContext.Status):
-                        Status = source.Status;
-                        break;
-
-                    default:
-                        break;
-                }
+                setter.Invoke(source, this);
             }
         }
 
