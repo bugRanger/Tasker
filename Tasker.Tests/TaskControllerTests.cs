@@ -396,18 +396,13 @@ namespace Tasker.Tests
         public void GetKeyTest()
         {
             // Arrange
-            int expected1 = 1286132837;
-            int expected2 = -1929052188;
+            int expected = 1286132837;
 
             // Act
-            var hash1 = TaskContainer.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
-            var hash2 = TaskContainer.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
-            var hash3 = TaskContainer.GetKey(int.MaxValue - 1, "yGv9F3qmOKf8C7hcpVq6");
+            var hash = TaskContainer.GetKey(int.MaxValue, "yGv9F3qmOKf8C7hcpVq6");
 
             // Assert
-            Assert.AreEqual(expected1, hash1);
-            Assert.AreEqual(expected1, hash2);
-            Assert.AreEqual(expected2, hash3);
+            Assert.AreEqual(expected, hash);
         }
 
         #endregion Methods
