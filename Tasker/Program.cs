@@ -38,27 +38,24 @@
 
                 while (!stopped)
                 {
-                    while (!stopped)
+                    Console.WriteLine("Press key Q for stopped");
+                    Console.WriteLine("Press key S for setting");
+
+                    var keyInfo = Console.ReadKey();
+
+                    switch (keyInfo.Key)
                     {
-                        Console.WriteLine("Press key Q for stopped");
-                        Console.WriteLine("Press key S for setting");
+                        case ConsoleKey.Q:
+                            stopped = true;
+                            break;
 
-                        var keyInfo = Console.ReadKey();
+                        case ConsoleKey.S:
+                            // TODO: Impl.
+                            //strategy new ConfigurationStrategy();
+                            break;
 
-                        switch (keyInfo.Key)
-                        {
-                            case ConsoleKey.Q:
-                                stopped = true;
-                                break;
-
-                            case ConsoleKey.S:
-                                // TODO: Impl.
-                                //strategy new ConfigurationStrategy();
-                                break;
-
-                            default:
-                                break;
-                        }
+                        default:
+                            break;
                     }
                 }
             }
