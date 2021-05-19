@@ -52,9 +52,12 @@
             return _manager.ListAll<T>(parameters);
         }
 
-        public Task<T> Update<T>(string id, T data) where T : class, new()
+        public async Task<T> Update<T>(string id, T data) where T : class, new()
         {
-            return _manager.Update<T>(id, data);
+            // TODO: Update возвращает туже сущность если случился сбой, из за чего не удается их отслеживать.
+            await _manager.Update(id, data);
+
+            return await _manager.Get<T>(id, new NameValueCollection());
         }
 
         #endregion Methods

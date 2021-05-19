@@ -81,6 +81,7 @@
 
                 taskCurrent.Context.ApplyPatch(task.Context, properties);
 
+                // TODO: Generation pipeline witch return rollbac/callback operations.
                 service.Enqueue(new UpdateTask(taskCurrent, taskId =>
                 {
                     cached.GetOrAdd(serviceId, taskId);

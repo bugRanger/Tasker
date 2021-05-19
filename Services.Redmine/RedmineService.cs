@@ -6,6 +6,7 @@
     using System.Threading.Tasks;
     using System.Collections.Generic;
     using System.Collections.Specialized;
+    using System.Collections.Concurrent;
 
     using NLog;
 
@@ -29,7 +30,7 @@
 
         private readonly TaskQueue _queue;
 
-        private readonly Dictionary<int, Issue> _issues;
+        private readonly ConcurrentDictionary<int, Issue> _issues;
         private readonly Dictionary<TaskState, IssueStatus> _statuses;
 
         private IRedmineProxy _proxy;
@@ -63,7 +64,7 @@
             Options = options;
 
             _timeline = timeline;
-            _issues = new Dictionary<int, Issue>();
+            _issues = new ConcurrentDictionary<int, Issue>();
             _statuses = new Dictionary<TaskState, IssueStatus>();
 
             _cancellationSource = new CancellationTokenSource();
@@ -111,24 +112,25 @@
         public string Handle(ITaskCommon task)
         {
             if (string.IsNullOrWhiteSpace(task.ExternalId) || 
-                !int.TryParse(task.ExternalId, out int id))
+                !int.TryParse(task.ExternalId, out int id) ||
+                !_issues.TryGetValue(id, out Issue issue))
             {
                 return string.Empty;
             }
-
-            if (!_issues.TryGetValue(id, out Issue issue))
-            {
-                return string.Empty;
-            }
-
-            bool changed = false;
 
             if (!_statuses.TryGetValue(task.Context.Status, out var status))
             {
                 return issue.Id.ToString();
             }
 
-            changed |= issue.Status != status;
+            // TODO: Add calculation other changes.
+            bool changed = issue.Status != status;
+
+            if (!changed)
+            {
+                return issue.Id.ToString();
+            }
+
             issue.Status = status;
 
             //if (issue.EstimatedHours == null)
@@ -136,12 +138,13 @@
             //var values1 = new NameValueCollection() { { RedmineKeys.ISSUE_ID, issue.Id.ToString() } };
             //var updates1 = RunAsync(() => _proxy.ListAll<TimeEntry>(values1));
 
-            _issues[issue.Id] = issue;
-
-            if (changed)
+            Issue result = RunAsync(() => _proxy.Update(task.ExternalId.ToString(), issue));
+            if (!Equals(result, issue))
             {
-                issue = RunAsync(() => _proxy.Update(task.ExternalId.ToString(), issue));
+                RaiseNotify(result);
             }
+
+            _issues[issue.Id] = result;
 
             return issue.Id.ToString();
         }
@@ -175,30 +178,35 @@
 
                 _issues[issue.Id] = issue;
 
-                Notify?.Invoke(this, 
-                    new TaskCommon
+                RaiseNotify(issue);
+            }
+
+            return true;
+        }
+
+        private void RaiseNotify(Issue issue)
+        {
+            Notify?.Invoke(this,
+                new TaskCommon
+                {
+                    ExternalId = issue.Id.ToString(),
+                    Context = new TaskContext
                     {
-                        ExternalId = issue.Id.ToString(),
-                        Context = new TaskContext
-                        {
-                            Id = issue.Id.ToString(),
-                            Name = issue.Subject,
-                            Description = issue.Description,
-                            Kind = Enum.TryParse<TaskKind>(issue.Tracker.Name, out var kind) ? kind : TaskKind.Unknown,
-                            Status = Enum.TryParse<TaskState>(issue.Status.Name.Replace(" ", string.Empty), true, out var state) ? state : TaskState.New,
-                        }
-                    },
-                    new string[]
-                    {
+                        Id = issue.Id.ToString(),
+                        Name = issue.Subject,
+                        Description = issue.Description,
+                        Kind = Enum.TryParse<TaskKind>(issue.Tracker.Name, out var kind) ? kind : TaskKind.Unknown,
+                        Status = Enum.TryParse<TaskState>(issue.Status.Name.Replace(" ", string.Empty), true, out var state) ? state : TaskState.New,
+                    }
+                },
+                new string[]
+                {
                         nameof(TaskContext.Id),
                         nameof(TaskContext.Name),
                         nameof(TaskContext.Description),
                         nameof(TaskContext.Kind),
                         nameof(TaskContext.Status),
-                    });
-            }
-
-            return true;
+                });
         }
 
         private bool Equals(Issue source, Issue target) 
